@@ -1,0 +1,1247 @@
+﻿<Window
+    x:Class="LightGateway.View.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:helpers="clr-namespace:LightGateway.Ultils"
+    xmlns:local="clr-namespace:LightGateway"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:LightGateway.ViewModel"
+    Title="轻网关配置工具"
+    Width="1180"
+    Height="820"
+    MinWidth="980"
+    MinHeight="680"
+    helpers:WindowActivationHelper.IsMouseInsideWindow="{Binding IsInsideWindow, Mode=TwoWay}"
+    helpers:WindowActivationHelper.TrackMouse="True"
+    Background="#F3F6FA"
+    FontFamily="Microsoft YaHei UI"
+    ResizeMode="CanResize"
+    WindowStartupLocation="CenterScreen"
+    mc:Ignorable="d">
+    <Window.DataContext>
+        <vm:MainViewModel />
+    </Window.DataContext>
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <helpers:RootStatusToBrushConverter x:Key="RootStatusToBrushConverter" />
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#2563EB" />
+        <SolidColorBrush x:Key="PrimaryHoverBrush" Color="#1D4ED8" />
+        <Style TargetType="Button">
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Padding" Value="16,7" />
+            <Setter Property="Margin" Value="4" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border
+                            x:Name="ButtonBorder"
+                            Padding="{TemplateBinding Padding}"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{StaticResource PrimaryHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style
+            x:Key="SecondaryButton"
+            BasedOn="{StaticResource {x:Type Button}}"
+            TargetType="Button">
+            <Setter Property="Background" Value="#E8EEF7" />
+            <Setter Property="Foreground" Value="#334155" />
+        </Style>
+        <Style
+            x:Key="DangerButton"
+            BasedOn="{StaticResource {x:Type Button}}"
+            TargetType="Button">
+            <Setter Property="Background" Value="#DC2626" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Margin" Value="0,4,0,10" />
+            <Setter Property="BorderBrush" Value="#CBD5E1" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Background" Value="White" />
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="Margin" Value="0,4,0,10" />
+            <Setter Property="BorderBrush" Value="#CBD5E1" />
+            <Setter Property="Background" Value="White" />
+        </Style>
+        <Style TargetType="Label">
+            <Setter Property="Foreground" Value="#475569" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style TargetType="GroupBox">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#DEE5EE" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="18" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#DEE5EE" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="18" />
+            <Setter Property="Margin" Value="0,0,12,12" />
+        </Style>
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="17" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#1E293B" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#64748B" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style x:Key="ReadValue" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#172033" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,3,0,10" />
+        </Style>
+        <Style TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style TargetType="TabItem">
+            <Setter Property="Padding" Value="22,10" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#64748B" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style x:Key="EditableReadValue" TargetType="TextBox">
+            <Setter Property="Foreground" Value="#172033" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,3,0,10" />
+            <Setter Property="Padding" Value="6,3" />
+            <Setter Property="BorderBrush" Value="#CBD5E1" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="Height" Value="Auto" />
+            <Setter Property="MinHeight" Value="26" />
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition />
+        </Grid.RowDefinitions>
+        <Border
+            Grid.Row="0"
+            Padding="20,14"
+            Background="#152238">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                    <Border
+                        Width="38"
+                        Height="38"
+                        Background="#2563EB"
+                        CornerRadius="8">
+                        <TextBlock
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Foreground="White"
+                            Text="LG" />
+                    </Border>
+                    <StackPanel Margin="12,0,0,0">
+                        <TextBlock
+                            FontSize="19"
+                            FontWeight="Bold"
+                            Foreground="White"
+                            Text="轻网关配置工具" />
+                        <TextBlock
+                            FontSize="11"
+                            Foreground="#94A3B8"
+                            Text="ESP32 Configuration Console" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal">
+                    <ComboBox
+                        Width="105"
+                        Margin="4"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        IsEnabled="{Binding ComboBoxEB}"
+                        ItemsSource="{Binding PortNameList}"
+                        SelectedItem="{Binding SelectedComPort}" />
+                    <ComboBox
+                        Width="100"
+                        Margin="4"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        IsEnabled="False"
+                        ItemsSource="{Binding BaudRateList}"
+                        SelectedItem="{Binding SelectedBaudRate}" />
+                    <ComboBox
+                        Width="70"
+                        Margin="4"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        IsEnabled="False"
+                        ItemsSource="{Binding DataBits}"
+                        SelectedItem="{Binding SelectedDataBits}" />
+                    <ComboBox
+                        Width="70"
+                        Margin="4"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        IsEnabled="False"
+                        ItemsSource="{Binding StopBits}"
+                        SelectedItem="{Binding SelectedStopBits}" />
+                    <Button
+                        Command="{Binding CmdClick}"
+                        CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
+                        Content="刷新"
+                        IsEnabled="{Binding ComboBoxEB}"
+                        Style="{StaticResource SecondaryButton}" />
+                    <Button
+                        Command="{Binding CmdClick}"
+                        CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
+                        Content="打开串口" />
+                    <Border
+                        Width="1"
+                        Margin="10,3"
+                        Background="#40516A" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <TabControl Grid.Row="1" Margin="18,10,18,18">
+            <TabItem Header="设备读取结果">
+                <Grid Background="#F4F7FA">
+                    <Grid.Resources>
+                        <Style x:Key="ReadCardStyle" TargetType="Border">
+                            <Setter Property="Background" Value="White" />
+                            <Setter Property="BorderBrush" Value="#DCE3EA" />
+                            <Setter Property="BorderThickness" Value="1" />
+                            <Setter Property="CornerRadius" Value="8" />
+                            <Setter Property="Padding" Value="16" />
+                            <Setter Property="Margin" Value="0,0,0,12" />
+                        </Style>
+                        <Style x:Key="ReadSectionTitleStyle" TargetType="TextBlock">
+                            <Setter Property="FontSize" Value="16" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="Foreground" Value="#1F3A56" />
+                            <Setter Property="Margin" Value="0,0,0,10" />
+                        </Style>
+                        <Style x:Key="ReadLabelStyle" TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#64748B" />
+                            <Setter Property="Margin" Value="0,0,0,3" />
+                        </Style>
+                        <Style x:Key="ReadValueStyle" TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#172033" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="TextWrapping" Value="Wrap" />
+                        </Style>
+                    </Grid.Resources>
+
+                    <ScrollViewer Padding="20" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <Border
+                                Background="#EAF4FF"
+                                BorderBrush="#B8D8F5"
+                                Style="{StaticResource ReadCardStyle}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock
+                                            FontSize="22"
+                                            FontWeight="Bold"
+                                            Foreground="#17324D"
+                                            Text="ESP32 配置读取结果" />
+                                        <TextBlock
+                                            Margin="0,6,0,0"
+                                            Foreground="#36566F"
+                                            Text="{Binding ReadStatusMessage}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                        <TextBlock Foreground="#36566F" Text="{Binding LastReadTime, StringFormat=读取时间：{0}}" />
+                                        <TextBlock
+                                            Margin="0,4,0,0"
+                                            Foreground="#36566F"
+                                            Text="{Binding ReadExternalDevices.Count, StringFormat=设备数量：{0}}" />
+                                        <TextBlock
+                                            Margin="0,4,0,0"
+                                            FontWeight="SemiBold"
+                                            Foreground="#C46A13"
+                                            Text="{Binding ReadMatchStatus, StringFormat=配置比较：{0}}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <StackPanel Margin="0,4,0,10" Orientation="Horizontal">
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    FontSize="20"
+                                    FontWeight="Bold"
+                                    Foreground="#172033"
+                                    Text="基础配置" />
+                                <Button
+                                    Margin="12,0,0,0"
+                                    Padding="14,4"
+                                    Command="{Binding CmdClick}"
+                                    CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                                    Content="读取"
+                                    IsEnabled="{Binding ButtonIsEnabled}"
+                                    Style="{StaticResource SecondaryButton}" />
+                                <ComboBox
+                                    Width="180"
+                                    MinWidth="120"
+                                    Margin="8,4,8,10"
+                                    VerticalContentAlignment="Center"
+                                    DisplayMemberPath="DisplayName"
+                                    ItemsSource="{Binding ComboBoxAgingItems}"
+                                    SelectedItem="{Binding SelectedAgingShelf}" SelectionChanged="ComboBox_SelectionChanged" />
+                                <ComboBox
+                                    Width="150"
+                                    MinWidth="110"
+                                    Margin="0,4,8,10"
+                                    VerticalContentAlignment="Center"
+                                    DisplayMemberPath="DisplayName"
+                                    IsEnabled="{Binding PointsEnabled}"
+                                    ItemsSource="{Binding AgingPoints}"
+                                    SelectedItem="{Binding SelectedAgingPoint}"
+                                    ToolTip="{Binding PointAssignStatus}" />
+                                <CheckBox
+                                    Margin="0,4,8,10"
+                                    VerticalAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Content="仅显示可用节点"
+                                    Foreground="#475569"
+                                    IsChecked="{Binding OnlyAvailable, Mode=TwoWay}"
+                                    ToolTip="勾选时只查询可用状态的节点；取消勾选时查询全部节点" />
+                                <Button
+                                    Margin="0,0,0,0"
+                                    Padding="14,4"
+                                    Command="{Binding CmdClick}"
+                                    CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                                    Content="写入"
+                                    Style="{StaticResource SecondaryButton}"
+                                    ToolTip="{Binding PointAssignStatus}"
+                                    IsEnabled="{Binding ButtonIsEnabled}" />
+                            </StackPanel>
+
+                            <Border
+                                Margin="0,0,0,12"
+                                Padding="10,8"
+                                Background="#FFF7ED"
+                                BorderBrush="#FDBA74"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                                <StackPanel Orientation="Vertical">
+                                    <TextBlock
+                                        FontWeight="SemiBold"
+                                        Foreground="#9A3412"
+                                        Text="操作流程：设备连接好后，先点击「读取」→ 选择老化架 → 选择点位 → 设置「是否根节点」→ 点击「写入」。写入会自动回读校验，校验一致后才绑定所选老化架点位。" />
+                                    <TextBlock
+                                        Margin="0,4,0,0"
+                                        FontSize="12"
+                                        Foreground="#C2410C"
+                                        Text="注意：一个老化架中只能有一个节点设为 1（根节点），其余节点全部设为 0。" />
+                                    <TextBlock
+                                        Margin="0,4,0,0"
+                                        FontSize="12"
+                                        Foreground="#C2410C"
+                                        Text="{Binding PointAssignStatus, StringFormat=点位绑定状态：{0}}" />
+                                </StackPanel>
+                            </Border>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition />
+                                    <ColumnDefinition />
+                                    <ColumnDefinition />
+                                </Grid.ColumnDefinitions>
+
+                                <Border
+                                    Grid.Column="0"
+                                    Margin="0,0,8,12"
+                                    Style="{StaticResource ReadCardStyle}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource ReadSectionTitleStyle}" Text="Wi-Fi" />
+                                        <TextBlock Style="{StaticResource ReadLabelStyle}" Text="主 Wi-Fi 名称" />
+                                        <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding ReadSSID}" />
+                                        <TextBlock
+                                            Margin="0,10,0,3"
+                                            Style="{StaticResource ReadLabelStyle}"
+                                            Text="主 Wi-Fi 密码" />
+                                        <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding ReadWIFI_PS}" />
+                                        <TextBlock
+                                            Margin="0,10,0,3"
+                                            Style="{StaticResource ReadLabelStyle}"
+                                            Text="备用 Wi-Fi 名称" />
+                                        <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding ReadSSID1}" />
+                                        <TextBlock
+                                            Margin="0,10,0,3"
+                                            Style="{StaticResource ReadLabelStyle}"
+                                            Text="备用 Wi-Fi 密码" />
+                                        <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding ReadWIFI_PS1}" />
+                                        <TextBlock
+                                            Margin="0,10,0,3"
+                                            Style="{StaticResource ReadLabelStyle}"
+                                            Text="通道" />
+                                        <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding ReadChanel}" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border
+                                    Grid.Column="1"
+                                    Margin="4,0,4,12"
+                                    Style="{StaticResource ReadCardStyle}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource ReadSectionTitleStyle}" Text="Mesh" />
+                                        <TextBlock Style="{StaticResource ReadLabelStyle}" Text="Mesh ID" />
+                                        <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding ReadMesh_ID}" />
+                                        <TextBlock
+                                            Margin="0,10,0,3"
+                                            Style="{StaticResource ReadLabelStyle}"
+                                            Text="Mesh 密码" />
+                                        <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding ReadMesh_PS}" />
+
+                                        <TextBlock
+                                            Margin="0,10,0,3"
+                                            Style="{StaticResource ReadLabelStyle}"
+                                            Text="老化架号" />
+                                        <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding ReadAgingNumber}" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border
+                                    Grid.Column="2"
+                                    Margin="8,0,0,12"
+                                    Style="{StaticResource ReadCardStyle}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource ReadSectionTitleStyle}" Text="节点与服务器" />
+                                        <TextBlock Style="{StaticResource ReadLabelStyle}" Text="节点 ID" />
+                                        <TextBox
+                                            Background="#F1F5F9"
+                                            IsReadOnly="True"
+                                            Style="{StaticResource EditableReadValue}"
+                                            Text="{Binding ReadUDP_ID}" />
+                                        <TextBlock
+                                            Margin="0,10,0,3"
+                                            Style="{StaticResource ReadLabelStyle}"
+                                            Text="服务器 IP" />
+                                        <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding ReadSERVER_IP}" />
+                                        <TextBlock
+                                            Margin="0,10,0,3"
+                                            Style="{StaticResource ReadLabelStyle}"
+                                            Text="服务器 UDP 端口" />
+                                        <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding ReadSERVER_UDP_Port}" />
+                                        <TextBlock
+                                            Margin="0,10,0,3"
+                                            Style="{StaticResource ReadLabelStyle}"
+                                            Text="UDP 端口（写入时自动设为1）" />
+                                        <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding ReadUDPPort}" />
+                                        <TextBlock
+                                            Margin="0,10,0,3"
+                                            Style="{StaticResource ReadLabelStyle}"
+                                            Text="是否根节点" />
+                                        <ComboBox
+                                            Margin="0,3,0,10"
+                                            Padding="6,3"
+                                            HorizontalContentAlignment="Center"
+                                            VerticalContentAlignment="Center"
+                                            Background="{Binding ReadIsRoot, Converter={StaticResource RootStatusToBrushConverter}}"
+                                            FontSize="15"
+                                            FontWeight="Bold"
+                                            SelectedValue="{Binding ReadIsRoot}"
+                                            SelectedValuePath="Content">
+                                            <ComboBoxItem Content="0" />
+                                            <ComboBoxItem Content="1" />
+                                        </ComboBox>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <TextBlock
+                                Margin="0,4,0,10"
+                                FontSize="20"
+                                FontWeight="Bold"
+                                Foreground="#172033"
+                                Text="外接设备" />
+                            <TextBlock
+                                Margin="4,0,0,12"
+                                FontStyle="Italic"
+                                Foreground="#718096"
+                                Text="暂无外接设备数据">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ReadExternalDevices.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <ItemsControl ItemsSource="{Binding ReadExternalDevices}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource ReadCardStyle}">
+                                            <StackPanel>
+                                                <Grid Margin="0,0,0,12">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock
+                                                        FontSize="18"
+                                                        FontWeight="Bold"
+                                                        Foreground="#17324D"
+                                                        Text="{Binding Name}" />
+                                                    <TextBlock
+                                                        Grid.Column="1"
+                                                        Padding="10,3"
+                                                        Background="#E7F3FF"
+                                                        FontWeight="SemiBold"
+                                                        Foreground="#1769AA"
+                                                        Text="{Binding Proto}" />
+                                                </Grid>
+                                                <UniformGrid Margin="0,0,0,12" Columns="4">
+                                                    <StackPanel>
+                                                        <TextBlock Style="{StaticResource ReadLabelStyle}" Text="协议 ID" />
+                                                        <TextBlock Style="{StaticResource ReadValueStyle}" Text="{Binding ProtoID}" />
+                                                    </StackPanel>
+                                                    <StackPanel>
+                                                        <TextBlock Style="{StaticResource ReadLabelStyle}" Text="通信方式" />
+                                                        <TextBlock Style="{StaticResource ReadValueStyle}" Text="{Binding Communication}" />
+                                                    </StackPanel>
+                                                    <StackPanel>
+                                                        <TextBlock Style="{StaticResource ReadLabelStyle}" Text="端口" />
+                                                        <TextBlock Style="{StaticResource ReadValueStyle}" Text="{Binding Port}" />
+                                                    </StackPanel>
+                                                    <StackPanel>
+                                                        <TextBlock Style="{StaticResource ReadLabelStyle}" Text="协议" />
+                                                        <TextBlock Style="{StaticResource ReadValueStyle}" Text="{Binding Proto}" />
+                                                    </StackPanel>
+                                                </UniformGrid>
+
+                                                <ItemsControl ItemsSource="{Binding AgingSteps.AgingFunctionList}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Expander
+                                                                Margin="0,4,0,0"
+                                                                Padding="8"
+                                                                Background="#F8FAFC"
+                                                                BorderBrush="#E2E8F0"
+                                                                BorderThickness="1"
+                                                                IsExpanded="True">
+                                                                <Expander.Header>
+                                                                    <TextBlock
+                                                                        FontWeight="SemiBold"
+                                                                        Foreground="#334155"
+                                                                        Text="{Binding Method}" />
+                                                                </Expander.Header>
+                                                                <Grid Margin="4,10,4,4">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition />
+                                                                        <ColumnDefinition />
+                                                                        <ColumnDefinition />
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                                                        <TextBlock
+                                                                            FontSize="14"
+                                                                            Style="{StaticResource ReadSectionTitleStyle}"
+                                                                            Text="采样参数" />
+                                                                        <TextBlock Foreground="#94A3B8" Text="无">
+                                                                            <TextBlock.Style>
+                                                                                <Style TargetType="TextBlock">
+                                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                                    <Style.Triggers>
+                                                                                        <DataTrigger Binding="{Binding SampleData.Count}" Value="0">
+                                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                                        </DataTrigger>
+                                                                                    </Style.Triggers>
+                                                                                </Style>
+                                                                            </TextBlock.Style>
+                                                                        </TextBlock>
+                                                                        <ItemsControl ItemsSource="{Binding SampleData}">
+                                                                            <ItemsControl.ItemTemplate>
+                                                                                <DataTemplate>
+                                                                                    <TextBlock
+                                                                                        Margin="0,2"
+                                                                                        Text="{Binding Value}"
+                                                                                        TextWrapping="Wrap" />
+                                                                                </DataTemplate>
+                                                                            </ItemsControl.ItemTemplate>
+                                                                        </ItemsControl>
+                                                                    </StackPanel>
+                                                                    <StackPanel Grid.Column="1" Margin="8,0">
+                                                                        <TextBlock
+                                                                            FontSize="14"
+                                                                            Style="{StaticResource ReadSectionTitleStyle}"
+                                                                            Text="前置动作" />
+                                                                        <TextBlock Foreground="#94A3B8" Text="无">
+                                                                            <TextBlock.Style>
+                                                                                <Style TargetType="TextBlock">
+                                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                                    <Style.Triggers>
+                                                                                        <DataTrigger Binding="{Binding Action.PreAction.Count}" Value="0">
+                                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                                        </DataTrigger>
+                                                                                    </Style.Triggers>
+                                                                                </Style>
+                                                                            </TextBlock.Style>
+                                                                        </TextBlock>
+                                                                        <ItemsControl ItemsSource="{Binding Action.PreAction}">
+                                                                            <ItemsControl.ItemTemplate>
+                                                                                <DataTemplate>
+                                                                                    <Grid Margin="0,2">
+                                                                                        <Grid.ColumnDefinitions>
+                                                                                            <ColumnDefinition />
+                                                                                            <ColumnDefinition Width="Auto" />
+                                                                                        </Grid.ColumnDefinitions>
+                                                                                        <TextBlock Text="{Binding ParaName}" TextWrapping="Wrap" />
+                                                                                        <TextBlock
+                                                                                            Grid.Column="1"
+                                                                                            Margin="8,0,0,0"
+                                                                                            FontWeight="SemiBold"
+                                                                                            Text="{Binding ParaValue}" />
+                                                                                    </Grid>
+                                                                                </DataTemplate>
+                                                                            </ItemsControl.ItemTemplate>
+                                                                        </ItemsControl>
+                                                                    </StackPanel>
+                                                                    <StackPanel Grid.Column="2" Margin="8,0,0,0">
+                                                                        <TextBlock
+                                                                            FontSize="14"
+                                                                            Style="{StaticResource ReadSectionTitleStyle}"
+                                                                            Text="后置动作" />
+                                                                        <TextBlock Foreground="#94A3B8" Text="无">
+                                                                            <TextBlock.Style>
+                                                                                <Style TargetType="TextBlock">
+                                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                                    <Style.Triggers>
+                                                                                        <DataTrigger Binding="{Binding Action.AfterAction.Count}" Value="0">
+                                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                                        </DataTrigger>
+                                                                                    </Style.Triggers>
+                                                                                </Style>
+                                                                            </TextBlock.Style>
+                                                                        </TextBlock>
+                                                                        <ItemsControl ItemsSource="{Binding Action.AfterAction}">
+                                                                            <ItemsControl.ItemTemplate>
+                                                                                <DataTemplate>
+                                                                                    <Grid Margin="0,2">
+                                                                                        <Grid.ColumnDefinitions>
+                                                                                            <ColumnDefinition />
+                                                                                            <ColumnDefinition Width="Auto" />
+                                                                                        </Grid.ColumnDefinitions>
+                                                                                        <TextBlock Text="{Binding ParaName}" TextWrapping="Wrap" />
+                                                                                        <TextBlock
+                                                                                            Grid.Column="1"
+                                                                                            Margin="8,0,0,0"
+                                                                                            FontWeight="SemiBold"
+                                                                                            Text="{Binding ParaValue}" />
+                                                                                    </Grid>
+                                                                                </DataTemplate>
+                                                                            </ItemsControl.ItemTemplate>
+                                                                        </ItemsControl>
+                                                                    </StackPanel>
+                                                                </Grid>
+                                                            </Expander>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+
+            <!--  暂时不显示  -->
+            <TabItem Header="外接设备设置" Visibility="Collapsed">
+                <Grid Margin="0,8,0,0" Background="#F3F6FA">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="180" />
+                    </Grid.ColumnDefinitions>
+
+                    <ScrollViewer Padding="0,0,10,0" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Orientation="Vertical">
+
+                            <ComboBox
+                                Height="42"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                DisplayMemberPath="Name"
+                                FontSize="15"
+                                FontStyle="Normal"
+                                ItemsSource="{Binding ExternaldeviceList}"
+                                SelectedItem="{Binding SelctedExDev}" />
+
+                            <StackPanel
+                                MinHeight="48"
+                                Margin="5"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal">
+                                <Label Content="名称：" Foreground="Green" />
+                                <TextBox
+                                    Width="120"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Text="{Binding SelctedExDev.Name}" />
+                                <Label Content="ProtoID：" Foreground="Green" />
+                                <TextBox
+                                    Width="120"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Text="{Binding SelctedExDev.ProtoID}" />
+                                <Label Content="通讯方式：" Foreground="Green" />
+                                <ComboBox
+                                    Width="100"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    ItemsSource="{Binding SelctedExDev.Communications}"
+                                    SelectedItem="{Binding SelctedExDev.Communication}" />
+                                <Label Content="通讯协议：" Foreground="Green" />
+                                <ComboBox
+                                    Width="100"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    ItemsSource="{Binding SelctedExDev.Protos}"
+                                    SelectedItem="{Binding SelctedExDev.Proto}" />
+
+                            </StackPanel>
+
+                            <StackPanel Margin="5,8" Orientation="Horizontal">
+                                <Label Content="输入协议ID：" />
+                                <TextBox Width="150" Text="{Binding ProtoID}" />
+                                <Button
+                                    Height="40"
+                                    Background="Green"
+                                    Command="{Binding CmdClick}"
+                                    CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                                    Content="获取协议"
+                                    FontWeight="Bold" />
+
+                            </StackPanel>
+
+                            <ComboBox
+                                Height="42"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                DisplayMemberPath="Method"
+                                FontSize="15"
+                                FontStyle="Normal"
+                                ItemsSource="{Binding SelctedExDev.AgingSteps.AgingFunctionList}"
+                                SelectedItem="{Binding SelectedAgingFunction}" />
+
+                            <GroupBox Margin="5" Header="{Binding SelectedAgingFunction.Method}">
+
+
+                                <StackPanel Orientation="Vertical">
+
+                                    <Grid Height="200" Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition />
+                                            <ColumnDefinition Width="200" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel
+                                            Grid.Column="0"
+                                            Width="550"
+                                            Orientation="Vertical">
+                                            <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto">
+                                                <ItemsControl VerticalAlignment="Top" ItemsSource="{Binding SelectedAgingFunction.Action.PreAction}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <UniformGrid Columns="1" />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel
+                                                                Height="50"
+                                                                Margin="5"
+                                                                VerticalAlignment="Center"
+                                                                Orientation="Horizontal">
+                                                                <Label Content="ParaName：" Foreground="Green" />
+                                                                <ComboBox
+                                                                    Width="100"
+                                                                    HorizontalContentAlignment="Center"
+                                                                    VerticalContentAlignment="Center"
+                                                                    ItemsSource="{Binding DataContext.protos.WiteCommandListName, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                    SelectedItem="{Binding ParaName}" />
+
+                                                                <Label Content="ParaValue：" Foreground="Green" />
+                                                                <TextBox
+                                                                    Width="50"
+                                                                    HorizontalContentAlignment="Center"
+                                                                    VerticalContentAlignment="Center"
+                                                                    Text="{Binding ParaValue}" />
+
+
+                                                            </StackPanel>
+
+                                                        </DataTemplate>
+
+                                                    </ItemsControl.ItemTemplate>
+
+                                                </ItemsControl>
+                                            </ScrollViewer>
+
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <Button
+                                                Height="80"
+                                                Background="Green"
+                                                Command="{Binding CmdClick}"
+                                                CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                                                Content="添加PreAction"
+                                                FontWeight="Bold" />
+
+                                            <Button
+                                                Height="80"
+                                                Background="Red"
+                                                Command="{Binding CmdClick}"
+                                                CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                                                Content="删掉PreAction"
+                                                FontWeight="Bold" />
+
+                                        </StackPanel>
+
+
+
+
+                                    </Grid>
+
+                                    <Grid Height="200" Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition />
+                                            <ColumnDefinition Width="200" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel
+                                            Grid.Column="0"
+                                            Width="550"
+                                            Orientation="Vertical">
+                                            <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto">
+                                                <ItemsControl VerticalAlignment="Top" ItemsSource="{Binding SelectedAgingFunction.Action.AfterAction}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <UniformGrid Columns="1" />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel
+                                                                Height="50"
+                                                                Margin="5"
+                                                                VerticalAlignment="Center"
+                                                                Orientation="Horizontal">
+                                                                <Label Content="ParaName：" Foreground="Green" />
+                                                                <ComboBox
+                                                                    Width="100"
+                                                                    HorizontalContentAlignment="Center"
+                                                                    VerticalContentAlignment="Center"
+                                                                    ItemsSource="{Binding DataContext.protos.WiteCommandListName, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                    SelectedItem="{Binding ParaName}" />
+                                                                <Label Content="ParaValue：" Foreground="Green" />
+                                                                <TextBox
+                                                                    Width="50"
+                                                                    HorizontalContentAlignment="Center"
+                                                                    VerticalContentAlignment="Center"
+                                                                    Text="{Binding ParaValue}" />
+
+
+                                                            </StackPanel>
+
+                                                        </DataTemplate>
+
+                                                    </ItemsControl.ItemTemplate>
+
+                                                </ItemsControl>
+                                            </ScrollViewer>
+
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <Button
+                                                Height="80"
+                                                Background="Green"
+                                                Command="{Binding CmdClick}"
+                                                CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                                                Content="添加AfAction"
+                                                FontWeight="Bold" />
+
+                                            <Button
+                                                Height="80"
+                                                Background="Red"
+                                                Command="{Binding CmdClick}"
+                                                CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                                                Content="删掉AfAction"
+                                                FontWeight="Bold" />
+
+                                        </StackPanel>
+
+
+
+
+                                    </Grid>
+
+                                    <Grid Height="200" Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition />
+                                            <ColumnDefinition Width="200" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel
+                                            Grid.Column="0"
+                                            Width="550"
+                                            Orientation="Vertical">
+                                            <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto">
+                                                <ItemsControl VerticalAlignment="Top" ItemsSource="{Binding SelectedAgingFunction.SampleData}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <UniformGrid Columns="1" />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel
+                                                                Height="50"
+                                                                Margin="5"
+                                                                VerticalAlignment="Center"
+                                                                Orientation="Horizontal">
+                                                                <Label Content="Value：" Foreground="Green" />
+                                                                <ComboBox
+                                                                    Width="100"
+                                                                    HorizontalContentAlignment="Center"
+                                                                    VerticalContentAlignment="Center"
+                                                                    ItemsSource="{Binding DataContext.protos.ReadCommandListName, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                    SelectedItem="{Binding Value}" />
+
+
+
+                                                            </StackPanel>
+
+                                                        </DataTemplate>
+
+                                                    </ItemsControl.ItemTemplate>
+
+                                                </ItemsControl>
+                                            </ScrollViewer>
+
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <Button
+                                                Height="80"
+                                                Background="Green"
+                                                Command="{Binding CmdClick}"
+                                                CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                                                Content="添加读取参数"
+                                                FontWeight="Bold" />
+
+                                            <Button
+                                                Height="80"
+                                                Background="Red"
+                                                Command="{Binding CmdClick}"
+                                                CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                                                Content="删掉读取参数"
+                                                FontWeight="Bold" />
+
+                                        </StackPanel>
+
+
+
+
+                                    </Grid>
+                                </StackPanel>
+
+
+
+
+
+                            </GroupBox>
+
+
+
+                            <StackPanel />
+
+                        </StackPanel>
+                    </ScrollViewer>
+
+
+
+
+
+                    <StackPanel
+                        Grid.Column="1"
+                        Margin="4,0,0,0"
+                        VerticalAlignment="Top">
+                        <Button
+                            Height="44"
+                            Command="{Binding CmdClick}"
+                            CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                            Content="添加设备"
+                            FontSize="14"
+                            FontWeight="SemiBold" />
+
+                        <Button
+                            Height="44"
+                            Margin="0,5,0,0"
+                            Command="{Binding CmdClick}"
+                            CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                            Content="删除设备"
+                            FontSize="14"
+                            FontWeight="SemiBold"
+                            Style="{StaticResource DangerButton}" />
+
+                    </StackPanel>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </Grid>
+
+            </TabItem>
+
+            <TabItem Header="老化架设置">
+                <Grid Background="#F4F7FA">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="260" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+
+                    <Border
+                        Grid.Column="0"
+                        Margin="0,0,12,0"
+                        Padding="18"
+                        Background="White"
+                        BorderBrush="#DEE5EE"
+                        BorderThickness="1"
+                        CornerRadius="10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock
+                                Grid.Row="0"
+                                Style="{StaticResource SectionTitle}"
+                                Text="老化架列表" />
+                            <ListBox
+                                Grid.Row="1"
+                                Margin="0,0,0,12"
+                                DisplayMemberPath="DisplayName"
+                                ItemsSource="{Binding AgingShelves}"
+                                SelectedItem="{Binding SelectedAgingShelf}" />
+                            <StackPanel Grid.Row="2" Orientation="Vertical">
+                                <Button
+                                    Command="{Binding CmdClick}"
+                                    CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                                    Content="同步老化架"
+                                    IsEnabled="{Binding CanSyncRacks}" />
+                                <Button
+                                    Command="{Binding CmdClick}"
+                                    CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                                    Content="删除老化架"
+                                    Style="{StaticResource DangerButton}" />
+                                <Button
+                                    Margin="0,12,0,0"
+                                    Command="{Binding CmdClick}"
+                                    CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                                    Content="读取并匹配老化架"
+                                    Style="{StaticResource SecondaryButton}" />
+                                <TextBlock
+                                    Margin="0,10,0,0"
+                                    FontSize="12"
+                                    Foreground="#6B7280"
+                                    Text="{Binding RackSyncStatus}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <ScrollViewer
+                        Grid.Column="1"
+                        Padding="20"
+                        VerticalScrollBarVisibility="Auto">
+                        <Border Style="{StaticResource Card}">
+                            <Grid>
+                                <StackPanel>
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedAgingShelf}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <TextBlock Style="{StaticResource SectionTitle}" Text="老化架信息编辑" />
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="老化架号" />
+                                    <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding SelectedAgingShelf.ShelfNumber}" />
+                                    <TextBlock
+                                        Margin="0,10,0,3"
+                                        Style="{StaticResource FieldLabel}"
+                                        Text="主 Wi-Fi 名称" />
+                                    <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding SelectedAgingShelf.SSID}" />
+                                    <TextBlock
+                                        Margin="0,10,0,3"
+                                        Style="{StaticResource FieldLabel}"
+                                        Text="主 Wi-Fi 密码" />
+                                    <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding SelectedAgingShelf.WIFI_PS}" />
+                                    <TextBlock
+                                        Margin="0,10,0,3"
+                                        Style="{StaticResource FieldLabel}"
+                                        Text="备用 Wi-Fi 名称" />
+                                    <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding SelectedAgingShelf.SSID1}" />
+                                    <TextBlock
+                                        Margin="0,10,0,3"
+                                        Style="{StaticResource FieldLabel}"
+                                        Text="备用 Wi-Fi 密码" />
+                                    <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding SelectedAgingShelf.WIFI_PS1}" />
+                                    <TextBlock
+                                        Margin="0,10,0,3"
+                                        Style="{StaticResource FieldLabel}"
+                                        Text="通道(填0)" />
+                                    <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding SelectedAgingShelf.Channel}" />
+                                    <TextBlock
+                                        Margin="0,10,0,3"
+                                        Style="{StaticResource FieldLabel}"
+                                        Text="Mesh ID" />
+                                    <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding SelectedAgingShelf.Mesh_ID}" />
+                                    <TextBlock
+                                        Margin="0,10,0,3"
+                                        Style="{StaticResource FieldLabel}"
+                                        Text="Mesh 密码" />
+                                    <TextBox Style="{StaticResource EditableReadValue}" Text="{Binding SelectedAgingShelf.Mesh_PS}" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+
+        </TabControl>
+
+        <StackPanel
+            Grid.Row="1"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Orientation="Horizontal"
+            Visibility="Collapsed">
+            <Button
+                Grid.Row="3"
+                Width="100"
+                Margin="5,0,5,0"
+                Background="Green"
+                Command="{Binding CmdClick}"
+                CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                Content="测试"
+                FontSize="20"
+                FontWeight="Bold"
+                IsEnabled="{Binding ButtonIsEnabled}" />
+
+            <Button
+                Grid.Row="3"
+                Width="100"
+                Margin="5,0,5,0"
+                Background="Green"
+                Command="{Binding CmdClick}"
+                CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                Content="写入"
+                FontSize="20"
+                FontWeight="Bold"
+                IsEnabled="{Binding ButtonIsEnabled}" />
+
+            <Button
+                Grid.Row="3"
+                Width="100"
+                Margin="5,0,5,0"
+                Background="Green"
+                Command="{Binding CmdClick}"
+                CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                Content="读取"
+                FontSize="20"
+                FontWeight="Bold"
+                IsEnabled="{Binding ButtonIsEnabled}" />
+
+        </StackPanel>
+
+        <Grid
+            Grid.Row="0"
+            Grid.RowSpan="2"
+            Panel.ZIndex="100"
+            Visibility="{Binding IsReadBackWaiting, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Background="#BF000000" />
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <ProgressBar
+                    Width="240"
+                    Height="12"
+                    Background="#334155"
+                    BorderThickness="0"
+                    Foreground="#2563EB"
+                    Maximum="100"
+                    Value="{Binding WaitProgress}" />
+                <TextBlock
+                    Margin="0,12,0,0"
+                    HorizontalAlignment="Center"
+                    FontWeight="SemiBold"
+                    Foreground="White"
+                    Text="{Binding WaitMessage}" />
+            </StackPanel>
+        </Grid>
+
+    </Grid>
+
+
+
+</Window>
