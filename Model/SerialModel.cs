@@ -50,6 +50,13 @@ namespace LightGateway.Model
         }
         public void OpenSerial(string portname, int baudrate, int databit, string stopbit)//打开串口
         {
+            // CloseSerial 会释放并重建底层对象，这里兜底防止极端情况下为 null。
+            if (_serial == null)
+            {
+                _serial = new SerialPort();
+                _serial.DataReceived += OnDataReceived;
+            }
+
             _serial.PortName = portname;//设置串口名称
             _serial.BaudRate = baudrate;//设置波特率
             _serial.DataBits = databit;//设置数据位
@@ -79,16 +86,39 @@ namespace LightGateway.Model
         }
 
         private object SPLOCK = new object();//串口对象锁
+
+        /// <summary>
+        /// 关闭串口。
+        /// 关键：Close + Dispose 之后必须重建 _serial，否则串口对象处于已释放状态，
+        /// 后续 OpenSerial 会抛异常（写入成功后自动关闭串口，紧接着换设备重开是常规操作）。
+        /// </summary>
         public bool CloseSerial()//关闭串口
         {
             lock (SPLOCK)
             {
-                if (_serial != null && _serial.IsOpen)//如果串口已打开
+                if (_serial != null)
                 {
-                    _serial.Close();//关闭串口
-                    _serial.Dispose();//释放串口资源
-                    IsOpen = false;
-                    SerialPortHasOpen = false;
+                    try
+                    {
+                        if (_serial.IsOpen)
+                        {
+                            _serial.Close();//关闭串口
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
+                    finally
+                    {
+                        _serial.DataReceived -= OnDataReceived;
+                        _serial.Dispose();//释放串口资源
+                        // 重建底层串口对象，使同一个 SerialModel 可以被反复打开/关闭。
+                        _serial = new SerialPort();
+                        _serial.DataReceived += OnDataReceived;
+                        IsOpen = false;
+                        SerialPortHasOpen = false;
+                    }
                 }
             }
             return true;
@@ -175,6 +205,35 @@ namespace LightGateway.Model
             _serial.Read(buffer, 0, bytesToRead);//读取字节数组，获取数据
 
             return buffer;//返回读取到的字节数组
+        }
+
+        /// <summary>
+        /// 清空串口接收缓冲区（同时清发送缓冲区），丢弃上一次通信或开机日志留下的残留字节。
+        /// 发送读命令前调用，避免把残留帧当成本次响应。
+        /// 串口未打开或已释放时静默返回，不抛异常。
+        /// </summary>
+        public void ClearReceiveBuffer()
+        {
+            lock (SPLOCK)
+            {
+                if (_serial == null)
+                {
+                    return;
+                }
+
+                try
+                {
+                    if (_serial.IsOpen)
+                    {
+                        _serial.DiscardInBuffer();//清空接收缓冲区
+                        _serial.DiscardOutBuffer();//清空发送缓冲区
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
         }
 
         private object OnlyOneSendResponesLock = new object();//串口发送和接收锁

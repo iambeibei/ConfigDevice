@@ -114,6 +114,26 @@ Adding a new button usually means:
 - 失败口径：`AssignDevice` 失败不回滚、不清空已写入的配置，只更新 `ReadStatusMessage` / `PointAssignStatus`，
   让用户重选点位后再写入；文案必须区分"写入失败"与"写入成功但绑定失败"。
 
+## Write Result Feedback & Auto Close Serial (写入结果反馈与自动关闭串口)
+
+- **统一结果对象 `ViewModel/WriteOutcome.cs`**（`WriteOutcome` / `WriteResultKind`）：`WriteVerifyAndBindAsync()` 改为
+  返回 `WriteOutcome`，内部**不再自己弹 MessageBox**（唯一的例外是写入前的授权确认框）。
+  所有终态都转成这个对象后交给 `case "写入"` 弹一次窗 —— 成功路径过去是静默的，这是最大的行为差异。
+- **结果窗 `View/WriteResultDialog.xaml(.cs)`**：成功绿 / 部分成功橙 / 失败红，`Detail` 区放失败原因与回读 diff。
+  点主按钮 → `DialogResult = true`；**从标题栏 X 关闭 → false（视为未确认）**。不用 MessageBox 的原因：
+  单按钮 OK 时系统禁用标题栏 X，且按钮文案无法自定义。
+- **自动关闭串口的条件**：`outcome.CanCloseSerial == true`（仅 `WriteOutcome.OkAndCloseSerial` 产生，
+  即写入 + 绑定都成功）**且**用户在结果窗点了主按钮 → `CloseSerialAfterWrite()`。
+  写入成功但绑定失败 / 未绑定点位 / 任何失败 → 点确认只关窗，**串口一律保持原状态**。
+- **`ApplySerialUiState(bool isOpen)` 是串口 UI 的唯一出口**（按钮文案/颜色、`ButtonIsEnabled`、`ComboBoxEB`）。
+  手动开关串口、`case "写入"` 结束、自动关闭都必须走它，否则两条路径状态会不一致。串口按钮的
+  `Content` / `Background` 已改为绑定 `SerialButtonContent` / `SerialButtonBackground`，
+  不要再回到 `case` 里直接写 `obj.Content`。
+- **顺序约束**：`IsReadBackWaiting = false` 必须在弹窗之前（`case "写入"` 的 finally 里做），
+  否则 `ZIndex=100` 的遮罩会盖住结果窗。
+- **`SerialModel.CloseSerial()` 关闭后会重建 `_serial`**（旧代码 Dispose 后不重建 → 再次 OpenSerial 必抛）。
+  "写入成功自动关闭 → 换下一台设备重开"依赖这个修复，不要退回原实现。
+
 ## Aging Point & Device Assignment (点位选择与设备分配)
 
 - `AvailablePointList`: `POST .../DeviceServiceCallback/AvailablePointList`, body

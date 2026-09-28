@@ -233,7 +233,9 @@
                     <Button
                         Command="{Binding CmdClick}"
                         CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
-                        Content="打开串口" />
+                        Content="{Binding SerialButtonContent}"
+                        Background="{Binding SerialButtonBackground}"
+                        ToolTip="打开串口后才能读取/写入设备；写入成功且绑定成功后会自动关闭" />
                     <Border
                         Width="1"
                         Margin="10,3"
@@ -371,7 +373,7 @@
                                     <TextBlock
                                         FontWeight="SemiBold"
                                         Foreground="#9A3412"
-                                        Text="操作流程：设备连接好后，先点击「读取」→ 选择老化架 → 选择点位 → 设置「是否根节点」→ 点击「写入」。写入会自动回读校验，校验一致后才绑定所选老化架点位。" />
+                                        Text="操作流程：设备连接好后，先点击「读取」→ 选择老化架 → 选择点位 → 设置「是否根节点」→ 点击「写入」。写入会自动回读校验，校验一致后才绑定所选老化架点位；无论成功或失败都会弹出结果提示。仅当写入与绑定都成功时，点击结果弹窗的「确认并关闭串口」才会自动关闭串口。" />
                                     <TextBlock
                                         Margin="0,4,0,0"
                                         FontSize="12"

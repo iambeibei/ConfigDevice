@@ -33,10 +33,21 @@
   退出即丢；`App.xaml.cs` 无 OnExit、MainWindow 无 Closing 保存钩子。
 - 老化架保存链路 `AttachAutoSave → AutoSaveHandler → SaveAgingShelves` 是**每次 PropertyChanged 全量覆写**，
   存在写坏后反序列化失败→被重置为空→二次覆盖致数据丢失的风险，改造时一并处理（去抖 + 原子写 + 备份）。
-- `SerialModel.CloseSerial()` 执行 `Close()+Dispose()` 后**未重建 `_serial`**，之后 `OpenSerial` 必抛异常。
-  任何涉及"关闭再打开串口"的改动前先修这个。
+- ~~`SerialModel.CloseSerial()` 执行 `Close()+Dispose()` 后**未重建 `_serial`**，之后 `OpenSerial` 必抛异常。~~
+  **已于 2026-09-28 修复**：`CloseSerial()` 现在 dispose 后 `new SerialPort()` 重建并重绑 `DataReceived`，
+  `OpenSerial` 也加了 null 兜底，串口可反复开闭。改动这块时不要退回旧实现。
 - 自动化的写操作（`AssignDevice` 改服务端绑定）不能静默执行，保留用户确认入口。
-- 计划类文档放 `docs/`，如 `docs/LightGateway-改造计划.md`（操作流程合并 / 持久化 / 串口自动刷新）。
+- 计划类文档放 `docs/`，如 `docs/LightGateway-改造计划.md`（操作流程合并 / 持久化 / 串口自动刷新）、
+  `docs/LightGateway-写入结果反馈与串口关闭-改造计划.md`（写入结果统一反馈 / 串口自动关闭，含回归矩阵）。
+
+## 写入反馈与串口自动关闭（2026-09-28 起）
+
+- `WriteOutcome`（`ViewModel/WriteOutcome.cs`）是写入链路唯一结果出口，**成功也不能静默**：
+  任何终态都由 `case "写入"` 弹一次结果窗（`View/WriteResultDialog`）。写前授权确认框保留，用户点「否」不弹窗。
+- 自动关闭串口的唯一条件：`CanCloseSerial`（写入+绑定都成功）**且**用户点了弹窗主按钮；标题栏 X 关闭算未确认，串口不动。
+- **顺序硬约束**：`IsReadBackWaiting = false` 必须在弹窗之前（遮罩 ZIndex=100 会盖住结果窗）。
+- `ApplySerialUiState(bool isOpen)` 是串口 UI（按钮文案/颜色 + ButtonIsEnabled/ComboBoxEB）的唯一出口，
+  禁止在 `case` 里直接改 `obj.Content` / `obj.Background`。
 
 ## 环境备忘
 

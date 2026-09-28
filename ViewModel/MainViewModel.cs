@@ -1,6 +1,7 @@
 ﻿using LightGateway.Command;
 using LightGateway.Model;
 using LightGateway.Ultils;
+using LightGateway.View;
 using PropertyChanged;
 using System;
 using System.Collections.Generic;
@@ -33,6 +34,20 @@ namespace LightGateway.ViewModel
         private readonly RackApiClient _rackApiClient = new();
         public bool ButtonIsEnabled { get; set; } = false;//按钮是否可用
         public bool ComboBoxEB { get; set; } = true;//下拉框是否可用
+
+        /// <summary>
+        /// 串口开/关按钮的文案。由 ApplySerialUiState 统一维护，
+        /// 使「手动点击」与「写入成功后自动关闭串口」两条路径表现一致。
+        /// </summary>
+        public string SerialButtonContent { get; set; } = "打开串口";
+
+        /// <summary>
+        /// 串口开/关按钮的背景色：打开时红色（提示可关闭），关闭时绿色（提示可打开）。
+        /// </summary>
+        public Brush SerialButtonBackground { get; set; } = Brushes.Green;
+
+        private static readonly Brush SerialOpenBrush = new SolidColorBrush(Colors.Red);
+        private static readonly Brush SerialClosedBrush = new SolidColorBrush(Colors.Green);
 
         #region 点击界面显示点击界面
         public bool IsInsideWindow { get; set; }
@@ -193,33 +208,41 @@ namespace LightGateway.ViewModel
                     IsWriting = true;
                     ButtonIsEnabled = false;
                     ComboBoxEB = false;
+                    WriteOutcome writeOutcome;
                     try
                     {
                         // 写设备 → 等待回读 → 校验，校验一致才绑定点位（单一入口，「写入并重新读取」已移除）。
-                        await WriteVerifyAndBindAsync();
+                        // 成功与失败都不再各自弹窗，统一由结果对象带到 finally 之后展示。
+                        writeOutcome = await WriteVerifyAndBindAsync();
                     }
                     catch (Exception ex)
                     {
+                        // 兜底：WriteVerifyAndBindAsync 内部已消化异常，这里防御未预期情况。
+                        writeOutcome = WriteOutcome.Error("写入失败", "写入过程中发生未预期错误，流程已中止。", ex.Message);
                         ReadStatusMessage = $"写入或回读失败：{ex.Message}";
-                        MessageBox.Show(ReadStatusMessage, "写入配置", MessageBoxButton.OK, MessageBoxImage.Error);
                     }
                     finally
                     {
+                        // 遮罩必须先消失，否则会盖住随后弹出的结果窗。
                         IsReadBackWaiting = false;
                         IsWriting = false;
                         IsAssigning = false;
-                        if (serialModel.IsOpen)
-                        {
-                            ButtonIsEnabled = true;
-                            ComboBoxEB = false;
-                        }
-                        else
-                        {
-                            ButtonIsEnabled = false;
-                            ComboBoxEB = true;
-                        }
+                        // 此处刻意不恢复 ButtonIsEnabled：结果窗弹出期间保持禁用，避免再次触发写入。
                         UpdateCanAssignDevice();
                     }
+
+                    // 结果反馈：无论成功还是失败都弹一次，失败时给出明确原因。
+                    if (writeOutcome.ShowDialog)
+                    {
+                        bool confirmed = ShowWriteResultDialog(writeOutcome);
+                        // 只有「写入成功且绑定成功」时，用户点击确认才自动关闭串口。
+                        if (confirmed && writeOutcome.CanCloseSerial)
+                        {
+                            CloseSerialAfterWrite();
+                        }
+                    }
+
+                    ApplySerialUiState(serialModel.IsOpen);
                     break;
 
                 case "同步老化架":
@@ -268,11 +291,7 @@ namespace LightGateway.ViewModel
                 case "打开串口":
                     if (OpenSerial())
                     {
-                        obj.Content = "关闭串口";
-                        obj.Background = new SolidColorBrush(Colors.Red);
-                        ButtonIsEnabled = true;
-                        ComboBoxEB = false;
-
+                        ApplySerialUiState(true);
                     }
 
                     break;
@@ -280,10 +299,7 @@ namespace LightGateway.ViewModel
                 case "关闭串口":
                     if (CloseSerial())
                     {
-                        obj.Content = "打开串口";
-                        obj.Background = new SolidColorBrush(Colors.Green);
-                        ButtonIsEnabled = false;
-                        ComboBoxEB = true;
+                        ApplySerialUiState(false);
                     }
 
                     break;
@@ -382,49 +398,47 @@ namespace LightGateway.ViewModel
         public List<KeyValuePair<string, string>> WroteSnapshot { get; set; } = new List<KeyValuePair<string, string>>();
         #endregion
 
-        private bool CheckConfigOnRead()
+        /// <summary>
+        /// 写入前的配置校验。不再自行弹窗，把缺失项收集起来交给统一的结果弹窗展示。
+        /// </summary>
+        private bool TryValidateConfig(out List<string> errors)
         {
+            errors = new List<string>();
+
             if (string.IsNullOrWhiteSpace(ReadSSID) || string.IsNullOrWhiteSpace(ReadSSID1))
             {
-                MessageBox.Show("请填写WiFi名称！");
-                return false;
+                errors.Add("WiFi 名称未填写");
             }
             if (string.IsNullOrWhiteSpace(ReadWIFI_PS) || string.IsNullOrWhiteSpace(ReadWIFI_PS1))
             {
-                MessageBox.Show("请填写WiFi密码！");
-                return false;
+                errors.Add("WiFi 密码未填写");
             }
             if (string.IsNullOrWhiteSpace(ReadMesh_ID))
             {
-                MessageBox.Show("请填写MeshID！");
-                return false;
+                errors.Add("MeshID 未填写");
             }
             if (string.IsNullOrWhiteSpace(ReadMesh_PS))
             {
-                MessageBox.Show("请填写Mesh密码！");
-                return false;
+                errors.Add("Mesh 密码未填写");
             }
             if (string.IsNullOrWhiteSpace(ReadUDP_ID))
             {
-                MessageBox.Show("请填写节点ID！");
-                return false;
+                errors.Add("节点 ID 未填写");
             }
-            if (string.IsNullOrWhiteSpace(ReadUDPPort) || !int.TryParse(ReadUDPPort, out int udpPort) || udpPort <= 0)
-            {
-                MessageBox.Show("请填写UDP端口！");
-                return false;
-            }
+            //if (string.IsNullOrWhiteSpace(ReadUDPPort) || !int.TryParse(ReadUDPPort, out int udpPort) || udpPort <= 0)
+            //{
+            //    errors.Add("UDP 端口未填写或不是正整数");
+            //}
             if (string.IsNullOrWhiteSpace(ReadSERVER_IP))
             {
-                MessageBox.Show("请填写服务器IP！");
-                return false;
+                errors.Add("服务器 IP 未填写");
             }
             if (string.IsNullOrWhiteSpace(ReadSERVER_UDP_Port) || !int.TryParse(ReadSERVER_UDP_Port, out int serverPort) || serverPort <= 0)
             {
-                MessageBox.Show("请填写服务器端口！");
-                return false;
+                errors.Add("服务器端口未填写或不是正整数");
             }
-            return true;
+
+            return errors.Count == 0;
         }
 
         private void DoReadConfig()
@@ -433,6 +447,9 @@ namespace LightGateway.ViewModel
             string json = JsonSerializer.Serialize(readconfig);
             byte[] message = Encoding.UTF8.GetBytes(json);
 
+            // 发送前先丢弃接收缓冲区里的残留数据（上一次通信的余帧、设备开机日志等），
+            // 否则 ReadOneFrameData 可能把脏帧当成本次 ReadConfig 的响应。
+            serialModel.ClearReceiveBuffer();
             serialModel.Send(message);
             byte[] reidata = serialModel.ReadOneFrameData(FirstByteReadTimeOut: 2000, ReadTimeOut: 30);
             if (reidata == null || reidata.Length == 0)
@@ -1089,13 +1106,15 @@ namespace LightGateway.ViewModel
         /// <summary>
         /// 「写入」的完整编排：写设备 → 等待回读 → 自动校验 → 校验一致才绑定点位。
         /// </summary>
-        private async Task WriteVerifyAndBindAsync()
+        private async Task<WriteOutcome> WriteVerifyAndBindAsync()
         {
             ReadUDPPort = "1";
 
-            if (!CheckConfigOnRead())
+            if (!TryValidateConfig(out var validationErrors))
             {
-                return;
+                ReadStatusMessage = "写入未开始：" + string.Join("；", validationErrors);
+                PointAssignStatus = "配置不完整，未写入、未绑定点位";
+                return WriteOutcome.Error("写入失败", "配置不完整，未向设备写入任何数据。", string.Join("\n", validationErrors));
             }
 
             // 绑定参数必须在写入前快照：回读后的 UI 回显会改写 SelectedAgingShelf / SelectedAgingPoint。
@@ -1143,10 +1162,20 @@ namespace LightGateway.ViewModel
             mes += "\n\n" + DescribeBindPlan(bindContext);
             if (MessageBox.Show(mes + "\n\n确定要写入吗？", "提示", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
             {
-                return;
+                // 用户主动取消，不算失败，静默结束即可。
+                return WriteOutcome.NoDialog();
             }
 
-            serialModel.Send(message);
+            try
+            {
+                serialModel.Send(message);
+            }
+            catch (Exception ex)
+            {
+                ReadStatusMessage = $"写入失败：{ex.Message}";
+                PointAssignStatus = "写入未成功，未绑定点位";
+                return WriteOutcome.Error("写入失败", "写入命令未能发送到串口，设备未收到配置。", ex.Message);
+            }
 
             // 显示等待回读遮罩
             IsReadBackWaiting = true;
@@ -1157,17 +1186,32 @@ namespace LightGateway.ViewModel
             await RunReadBackDelayAsync();
 
             WaitMessage = "正在回读设备配置...";
-            await Task.Run(DoReadConfig);
+            try
+            {
+                await Task.Run(DoReadConfig);
+            }
+            catch (Exception ex)
+            {
+                ReadStatusMessage = $"写入失败：设备未返回配置（{ex.Message}）";
+                PointAssignStatus = "写入结果未知，未绑定点位";
+                return WriteOutcome.Error(
+                    "写入失败",
+                    "设备未在规定时间内返回配置，写入结果未知。",
+                    ex.Message + "\n请检查串口连接与设备供电后重试。");
+            }
 
             ApplyReadBackShelfSelection();
 
             if (!CheckWriteOK(WroteSnapshot, out var diffs))
             {
+                string diffText = string.Join("；", diffs);
                 ReadMatchStatus = "写入并回读不一致";
-                ReadStatusMessage = "回读比对不一致：" + string.Join("；", diffs) + "（未调用绑定接口）";
+                ReadStatusMessage = "回读比对不一致：" + diffText + "（未调用绑定接口）";
                 PointAssignStatus = "回读不一致，未绑定点位";
-                MessageBox.Show(ReadStatusMessage, "写入配置", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                return WriteOutcome.Error(
+                    "写入失败",
+                    "已发送写入命令，但设备回读值与写入值不一致。",
+                    diffText + "\n未调用点位绑定接口。");
             }
 
             ReadMatchStatus = "写入并回读一致";
@@ -1176,11 +1220,28 @@ namespace LightGateway.ViewModel
             {
                 ReadStatusMessage = "回读比对一致，写入成功。（未选择接口同步的老化架或点位，已跳过点位绑定）";
                 PointAssignStatus = "未选择老化架或点位，跳过绑定";
-                return;
+                return WriteOutcome.Warning(
+                    "写入成功（未绑定点位）",
+                    "配置已写入并通过回读校验；未选择接口同步的老化架或点位，已跳过点位绑定。",
+                    "如需绑定，请在基础配置上方选择一个由接口同步生成的老化架及其点位后再次写入。");
             }
 
             ReadStatusMessage = "回读比对一致，写入成功，正在绑定老化架点位...";
-            await BindPointAsync(bindContext);
+            var (bound, bindMessage) = await BindPointAsync(bindContext);
+            if (!bound)
+            {
+                // 写入已成功，只是服务端绑定失败：不算“写入+绑定都成功”，因此不允许关闭串口。
+                return WriteOutcome.Warning(
+                    "写入成功，点位绑定失败",
+                    "配置已写入设备并通过回读校验，但点位绑定失败。",
+                    bindMessage + "\n可重新选择点位后再次写入。");
+            }
+
+            string roleText = bindContext.DeviceType == 2 ? "根节点" : "非根节点";
+            return WriteOutcome.OkAndCloseSerial(
+                "写入成功",
+                $"配置写入成功，已绑定 {bindContext.RackName} → {bindContext.PointName}。",
+                $"节点 ID：{bindContext.DeviceId}（{roleText}）\n老化架：{bindContext.RackName}\n点位：{bindContext.PointName}\n可用点位列表已刷新。");
         }
 
         /// <summary>
@@ -1269,11 +1330,11 @@ namespace LightGateway.ViewModel
         /// 把设备分配到指定点位。只在「写入 → 自动回读 → 校验一致」之后被调用（WriteVerifyAndBindAsync）。
         /// 成功后重新拉取该老化架的可用点位，因为已分配的点位不再可用。
         /// </summary>
-        private async Task BindPointAsync(BindContext context)
+        private async Task<(bool success, string message)> BindPointAsync(BindContext context)
         {
             if (IsAssigning)
             {
-                return;
+                return (false, "上一次点位绑定尚未结束。");
             }
 
             IsAssigning = true;
@@ -1288,10 +1349,10 @@ namespace LightGateway.ViewModel
 
                 if (!success)
                 {
+                    // 绑定失败不回滚、不清空已写入的配置，让用户改点位后重试。
                     ReadStatusMessage = $"写入成功且回读一致，但点位绑定失败：{message}";
                     PointAssignStatus = "点位绑定失败，可重新选择点位后再次写入";
-                    MessageBox.Show(ReadStatusMessage, "写入配置", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
+                    return (false, $"服务端返回：{message}");
                 }
 
                 ReadStatusMessage = $"写入成功，已绑定到 {context.RackName} → {context.PointName}。";
@@ -1300,13 +1361,15 @@ namespace LightGateway.ViewModel
                 WaitMessage = "正在刷新可用点位...";
                 // 绑定成功后沿用当前「仅显示可用节点」开关，并从首页重新拉取。
                 await LoadAvailablePointsAsync(context.AgingRackId.ToString(), OnlyAvailable);
+
+                return (true, $"已绑定 {context.RackName} → {context.PointName}");
             }
             catch (Exception ex)
             {
                 string reason = ex is TimeoutException ? $"请求超时（{ex.Message}）" : ex.Message;
                 ReadStatusMessage = $"写入成功且回读一致，但点位绑定失败：{reason}";
                 PointAssignStatus = "点位绑定失败";
-                MessageBox.Show(ReadStatusMessage, "写入配置", MessageBoxButton.OK, MessageBoxImage.Error);
+                return (false, reason);
             }
             finally
             {
@@ -1398,6 +1461,53 @@ namespace LightGateway.ViewModel
         private bool CloseSerial()
         {
             return serialModel.CloseSerial();
+        }
+
+        /// <summary>
+        /// 串口状态的唯一出口：同步「打开/关闭串口」按钮外观、读写类按钮可用性与端口下拉可用性。
+        /// 手动开闭串口与写入成功后自动关闭串口都必须走这里，避免两条路径表现不一致。
+        /// </summary>
+        private void ApplySerialUiState(bool isOpen)
+        {
+            SerialButtonContent = isOpen ? "关闭串口" : "打开串口";
+            SerialButtonBackground = isOpen ? SerialOpenBrush : SerialClosedBrush;
+            ButtonIsEnabled = isOpen;
+            ComboBoxEB = !isOpen;
+            UpdateCanAssignDevice();
+        }
+
+        /// <summary>
+        /// 展示写入结果弹窗。返回用户是否点击了主按钮（标题栏关闭视为未确认）。
+        /// </summary>
+        private bool ShowWriteResultDialog(WriteOutcome outcome)
+        {
+            var dialog = new WriteResultDialog(outcome)
+            {
+                Owner = Application.Current?.MainWindow
+            };
+
+            return dialog.ShowDialog() == true;
+        }
+
+        /// <summary>
+        /// 写入成功且绑定成功后，由用户在结果窗点击确认触发的自动关闭串口。
+        /// 串口已断开时幂等返回；关闭失败时保留"已打开"的界面状态，不假装成功。
+        /// </summary>
+        private void CloseSerialAfterWrite()
+        {
+            try
+            {
+                if (serialModel.IsOpen)
+                {
+                    serialModel.CloseSerial();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"串口关闭失败：{ex.Message}", "串口", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+
+            ApplySerialUiState(serialModel.IsOpen);
         }
         #endregion
 
