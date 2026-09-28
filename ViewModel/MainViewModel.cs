@@ -1046,7 +1046,7 @@ namespace LightGateway.ViewModel
                     PointsEnabled = true;
                     PointAssignStatus = onlyAvailable
                         ? $"已加载 {AgingPoints.Count} 个可用点位"
-                        : $"已加载 {AgingPoints.Count} 个节点（含不可用）";
+                        : $"已加载 {AgingPoints.Count} 个节点（含已绑定）";
                 }
                 else
                 {

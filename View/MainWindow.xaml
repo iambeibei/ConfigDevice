@@ -345,7 +345,7 @@
                                     Margin="0,4,8,10"
                                     VerticalAlignment="Center"
                                     VerticalContentAlignment="Center"
-                                    Content="仅显示可用节点"
+                                    Content="仅显示未绑定节点"
                                     Foreground="#475569"
                                     IsChecked="{Binding OnlyAvailable, Mode=TwoWay}"
                                     ToolTip="勾选时只查询可用状态的节点；取消勾选时查询全部节点" />
