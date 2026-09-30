@@ -173,35 +173,69 @@ namespace LightGateway.ViewModel
             switch (obj.Content?.ToString())
             {
                 case "读取":
+                    // 读取期间禁止再次点击「读取」，也禁止并发触发「写入」：
+                    // 读取已改到后台线程执行，与写入共用同一个串口对象，并发会互相污染收发数据。
+                    if (IsReading || IsWriting)
+                    {
+                        return;
+                    }
+
+                    IsReading = true;
                     try
                     {
-                        DoReadConfig();
+                        var (readOk, attempts, readError) = await TryReadConfigWithRetryAsync();
+
+                        if (!readOk)
+                        {
+                            // 读取失败不弹窗，只在状态栏给出失败原因与重试次数，由操作员自行重试。
+                            ReadStatusMessage = $"读取失败（已自动重试 {ReadMaxAttempts - 1} 次）：{readError?.Message}";
+                            break;
+                        }
+
                         SelectReadShelfItem();
+
+                        // 全流程唯一一次弹窗：读取成功后提示进入老化架选择。
+                        string message = "读取配置成功，请进入老化架选择。";
+                        MessageBoxImage icon = MessageBoxImage.Information;
 
                         if (WroteSnapshot != null && WroteSnapshot.Count > 0)
                         {
                             bool matched = CheckWriteOK(WroteSnapshot, out _);
                             ReadMatchStatus = matched ? "与最近写入配置一致" : "与最近写入配置不一致";
-                            MessageBox.Show(
-                                matched ? "读取配置成功，且与最近写入配置一致。" : "读取配置成功，但与最近写入配置不一致。",
-                                "读取配置",
-                                MessageBoxButton.OK,
-                                matched ? MessageBoxImage.Information : MessageBoxImage.Warning);
+                            message += matched
+                                ? "\n\n与最近写入配置一致。"
+                                : "\n\n与最近写入配置不一致，请核对后再写入。";
+                            if (!matched)
+                            {
+                                icon = MessageBoxImage.Warning;
+                            }
                         }
                         else
                         {
                             ReadMatchStatus = "尚未比较";
-                            MessageBox.Show("读取配置成功。", "读取配置", MessageBoxButton.OK, MessageBoxImage.Information);
                         }
+
+                        if (attempts > 1)
+                        {
+                            message += $"\n\n（第 1 次读取无响应，第 {attempts} 次自动重试成功）";
+                        }
+
+                        MessageBox.Show(message, "读取配置", MessageBoxButton.OK, icon);
                     }
                     catch (Exception ex)
                     {
+                        // 兜底：串口异常已在 TryReadConfigWithRetryAsync 内消化，
+                        // 这里只可能捕获 SelectReadShelfItem 等界面侧的意外错误，同样不弹窗。
                         ReadStatusMessage = $"读取失败：{ex.Message}";
-                        MessageBox.Show(ReadStatusMessage, "读取配置", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                    finally
+                    {
+                        IsReading = false;
                     }
                     break;
                 case "写入":
-                    if (IsWriting)
+                    // 与「读取」互斥，避免同一串口上的收发交错。
+                    if (IsWriting || IsReading)
                     {
                         return;
                     }
@@ -398,6 +432,26 @@ namespace LightGateway.ViewModel
         public List<KeyValuePair<string, string>> WroteSnapshot { get; set; } = new List<KeyValuePair<string, string>>();
         #endregion
 
+        #region 读取重试
+
+        /// <summary>
+        /// 「读取」按钮的总尝试次数（含首次）。首次失败后自动重试，直到成功或用完次数。
+        /// </summary>
+        private const int ReadMaxAttempts = 3;
+
+        /// <summary>
+        /// 两次读取尝试之间的等待时间（毫秒）：给设备留出重新响应的时间，也让状态栏的重试文案有机会刷新。
+        /// </summary>
+        private const int ReadRetryDelayMs = 300;
+
+        /// <summary>
+        /// 「读取」流程进行中。用于阻止等待期间的重复点击，并与「写入」互斥
+        /// （读取跑在后台线程上，与写入共用同一个串口对象）。
+        /// </summary>
+        public bool IsReading { get; set; }
+
+        #endregion
+
         /// <summary>
         /// 写入前的配置校验。不再自行弹窗，把缺失项收集起来交给统一的结果弹窗展示。
         /// </summary>
@@ -458,6 +512,42 @@ namespace LightGateway.ViewModel
             }
             string readjson = Encoding.UTF8.GetString(reidata);
             JsonParse(readjson);
+        }
+
+        /// <summary>
+        /// 带自动重试的读取配置，供「读取」按钮使用。
+        /// 任一尝试成功即返回；全部尝试失败才返回最后一次异常。
+        /// 重试过程只更新状态栏文案，不弹任何窗；是否弹窗由调用方决定。
+        /// 读取本身是同步阻塞的（最长等待 FirstByteReadTimeOut），放到后台线程执行以免界面卡死。
+        /// </summary>
+        /// <returns>ok=是否成功；attempts=实际尝试次数；error=全部失败时的最后一次异常。</returns>
+        private async Task<(bool ok, int attempts, Exception? error)> TryReadConfigWithRetryAsync()
+        {
+            Exception? lastError = null;
+
+            for (int attempt = 1; attempt <= ReadMaxAttempts; attempt++)
+            {
+                try
+                {
+                    await Task.Run(DoReadConfig);
+                    return (true, attempt, null);
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex;
+
+                    if (attempt >= ReadMaxAttempts)
+                    {
+                        break;
+                    }
+
+                    // 状态栏实时反馈重试进度（await 已回到界面线程，绑定能正常刷新）。
+                    ReadStatusMessage = $"读取失败，正在自动重试（{attempt}/{ReadMaxAttempts - 1}）：{ex.Message}";
+                    await Task.Delay(ReadRetryDelayMs);
+                }
+            }
+
+            return (false, ReadMaxAttempts, lastError);
         }
 
         private List<KeyValuePair<string, string>> MakeWroteSnapshot()

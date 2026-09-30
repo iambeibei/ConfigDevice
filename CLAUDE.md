@@ -99,6 +99,29 @@ Adding a new button usually means:
 - Shelf numbers are not returned by the interface; they are extracted from `name` (e.g. `老化架1` → `1`) and used to
   build `Mesh_ID` via `BuildMeshId`. User-entered shelf numbers / mesh IDs are never overwritten by a sync.
 
+## Read Flow (读取：自动重试 + 单一成功弹窗)
+
+- `case "读取"` 失败时**不再弹错误窗**。读取走 `TryReadConfigWithRetryAsync()`：最多
+  `ReadMaxAttempts = 3` 次尝试（含首次），两次之间 `ReadRetryDelayMs = 300ms`。
+  任一尝试成功即返回；只有全部失败才返回 `(ok:false, attempts, error)`。
+- 重试期间**只更新 `ReadStatusMessage`**（形如「读取失败，正在自动重试（1/2）：…」），不弹任何窗。
+- **全流程唯一一次弹窗发生在最终读取成功时**，主文案是「读取配置成功，请进入老化架选择。」。
+  若 `WroteSnapshot` 非空，追加与最近写入配置的一致性结论（不一致时用 Warning 图标）；
+  若经过重试才成功，再追加一行说明。**失败（含重试耗尽）一律不弹窗**，只把原因写进 `ReadStatusMessage`
+  ——这是需求明确要求的口径，不要"好心"补一个兜底错误弹窗。
+- `DoReadConfig()` 本身**没有改动**，重试只是它的外层包装。`写入` 的回读与 `读取并匹配老化架`
+  仍直接调用 `DoReadConfig()`、**不参与重试**。不要为了"统一"把重试塞进 `DoReadConfig`：
+  那会让写入的回读比对退化成"重试到一致为止"，掩盖真实的写入失败。
+- 读取改跑在**后台线程**（`await Task.Run(DoReadConfig)`），由此产生两条必须保留的约束：
+  1. 读取是同步阻塞的（`FirstByteReadTimeOut = 2000`，每次最长 2s），放后台是为了界面不卡死、
+     且状态栏的重试文案能实时刷新。
+  2. **`IsReading` 与 `IsWriting` 必须互斥**：`case "读取"` 与 `case "写入"` 各自在入口
+     `if (IsReading || IsWriting) return;`。串口只有一个，`Send` 有 `SPLOCK` 但 `ReadOneFrameData` 没有，
+     并发会让两边的收发互相污染。旧实现读取在 UI 线程同步执行、天然不可能并发，改成后台线程后
+     这个保护是**新增且必需**的，不要删。
+- 成功弹窗与 `SelectReadShelfItem()` 都在 `await` 之后执行，靠 WPF 同步上下文回到 UI 线程；
+  **不要加 `ConfigureAwait(false)`**，否则操作 ObservableCollection 会抛跨线程异常。
+
 ## Write + Verify + Bind (写入 → 自动回读校验 → 绑定点位)
 
 - `写入` (`WriteVerifyAndBindAsync`) 是唯一的写入入口。顺序是：`CaptureBindContext()`（在写之前快照 节点 ID /
