@@ -766,11 +766,12 @@ namespace LightGateway.ViewModel
         }
 
         /// <summary>
-        /// 按老化架号生成 Mesh ID，形如 01:01:01:01:01:01（每段两位、共六段）。
+        /// 按老化架号生成 Mesh ID：老化架号转十六进制，至少两位、不足两位前补 0，大写。
+        /// 如 1 → "01"、9 → "09"、10 → "0A"、16 → "10"。
         /// </summary>
         private static string BuildMeshId(int shelfNumber)
         {
-            return string.Join(":", Enumerable.Repeat(shelfNumber.ToString("D2"), 6));
+            return shelfNumber.ToString("X2");
         }
 
         /// <summary>
@@ -1013,10 +1014,23 @@ namespace LightGateway.ViewModel
                 {
                     AgingShelves.Remove(stale);
                 }
+                // 先规整再挂自动保存，避免逐项触发写文件；最后统一落盘一次。
+                bool meshIdChanged = false;
                 foreach (var shelf in AgingShelves)
                 {
                     shelf.IsReadConfigItem = false;
+                    string normalizedMeshId = NormalizeAutoMeshId(shelf.Mesh_ID, shelf.ShelfNumber);
+                    if (!string.Equals(normalizedMeshId, shelf.Mesh_ID, StringComparison.Ordinal))
+                    {
+                        shelf.Mesh_ID = normalizedMeshId;
+                        meshIdChanged = true;
+                    }
                     AttachAutoSave(shelf);
+                }
+
+                if (meshIdChanged)
+                {
+                    SaveAgingShelves();
                 }
             }
             catch (Exception ex)
@@ -1028,6 +1042,36 @@ namespace LightGateway.ViewModel
             {
                 RefreshComboBoxAgingItems();
             }
+        }
+
+        /// <summary>
+        /// 规整历史自动生成的 Mesh ID，统一为当前规则（十六进制两位大写）：
+        /// 六段重复 01:01:01:01:01:01 → "01"、10:10:10:10:10:10 → "0A"；
+        /// 旧版直接写成十进制老化架号的情况 1 → "01"、10 → "0A"。
+        /// 只处理上述历史形态，用户手填的其它值（含十六进制值）原样返回。
+        /// </summary>
+        private static string NormalizeAutoMeshId(string? meshId, string? shelfNumber)
+        {
+            string current = (meshId ?? "").Trim();
+            if (current.Length == 0)
+            {
+                return "";
+            }
+
+            // 形态一：六段完全重复，重复段即老化架号。
+            var legacy = Regex.Match(current, @"^(\d{1,3})(?::\1){5}$");
+            if (legacy.Success)
+            {
+                return BuildMeshId(int.Parse(legacy.Groups[1].Value));
+            }
+
+            // 形态二：旧版直接把十进制老化架号当作 Mesh ID（如 10 → "10"）。
+            if (int.TryParse(shelfNumber, out int number) && current == number.ToString())
+            {
+                return BuildMeshId(number);
+            }
+
+            return current;
         }
 
         private void SaveAgingShelves()

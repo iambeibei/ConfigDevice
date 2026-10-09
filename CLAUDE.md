@@ -97,7 +97,10 @@ Adding a new button usually means:
 - Triggered once silently at startup plus a manual `同步老化架` button. The old `添加老化架` button was removed — the
   interface is now the only source of truth for the rack list.
 - Shelf numbers are not returned by the interface; they are extracted from `name` (e.g. `老化架1` → `1`) and used to
-  build `Mesh_ID` via `BuildMeshId`. User-entered shelf numbers / mesh IDs are never overwritten by a sync.
+  build `Mesh_ID` via `BuildMeshId` — the mesh ID is the shelf number in uppercase hex, at least two digits
+  (e.g. `1` → `01`, `10` → `0A`). User-entered shelf numbers / mesh IDs are never overwritten by a sync;
+  legacy auto-generated values (six-segment `10:10:10:10:10:10` or plain decimal `10`) are normalized on load
+  via `NormalizeAutoMeshId`.
 
 ## Read Flow (读取：自动重试 + 单一成功弹窗)
 
