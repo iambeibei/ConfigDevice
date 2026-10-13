@@ -145,11 +145,11 @@ namespace LightGateway.Ultils
     /// </summary>
     public sealed class RackApiClient
     {
-        public const string RackPageListUrl = "https://192.168.40.116:7088/DeviceServiceCallback/RackPageList";
+        public const string RackPageListUrl = "http://192.168.1.65:11282/DeviceServiceCallback/RackPageList";
 
-        public const string AvailablePointListUrl = "https://192.168.40.116:7088/DeviceServiceCallback/AvailablePointList";
+        public const string AvailablePointListUrl = "http://192.168.1.65:11282/DeviceServiceCallback/AvailablePointList";
 
-        public const string AssignDeviceUrl = "https://192.168.40.116:7088/DeviceServiceCallback/AssignDevice";
+        public const string AssignDeviceUrl = "http://192.168.1.65:11282/DeviceServiceCallback/AssignDevice";
 
         /// <summary>
         /// 点位列表页大小，与接口约定保持一致。
