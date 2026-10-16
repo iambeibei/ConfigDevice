@@ -27,7 +27,7 @@ There are no unit tests, lint scripts, or CI files in this repo. Build warnings 
 
 ### Command Dispatch Pattern
 
-Buttons bind to `CmdClick` and pass themselves as `CommandParameter`. `MainViewModel.CmdCmdClickAction` switches on `obj.Content.ToString()`. Current recognized contents include: `读取`, `写入`, `回读比对`, `+1`, `刷新`, `打开串口`, `关闭串口`, `获取协议`, `添加/删除PreAction`, `添加/删除AfAction`, `添加/删除读取参数`, `添加设备`, `删除设备`, `同步老化架`, `删除老化架`, `读取并匹配老化架`.
+Buttons bind to `CmdClick` and pass themselves as `CommandParameter`. `MainViewModel.CmdCmdClickAction` switches on `obj.Content.ToString()`. Current recognized contents include: `读取`, `写入`, `复制待写入数据`, `回读比对`, `+1`, `刷新`, `打开串口`, `关闭串口`, `获取协议`, `添加/删除PreAction`, `添加/删除AfAction`, `添加/删除读取参数`, `添加设备`, `删除设备`, `同步老化架`, `删除老化架`, `读取并匹配老化架`.
 
 Note: `写入` is the single entry point for the whole write flow — it writes the device, auto-reads back, verifies, and only then binds the aging-rack point. The standalone `写入并重新读取` button was removed (see "Write + Verify + Bind" below); do not reintroduce a second write button.
 
@@ -124,6 +124,27 @@ Adding a new button usually means:
      这个保护是**新增且必需**的，不要删。
 - 成功弹窗与 `SelectReadShelfItem()` 都在 `await` 之后执行，靠 WPF 同步上下文回到 UI 线程；
   **不要加 `ConfigureAwait(false)`**，否则操作 ObservableCollection 会抛跨线程异常。
+
+## Copy Pending Write Payload (复制待写入数据)
+
+- 配置界面（「设备读取结果」Tab 的基础配置工具栏，「写入」按钮旁）提供 `复制待写入数据` 按钮，
+  一键把当前**即将写入设备**的配置复制到剪贴板。**仅复制按钮使用此格式，设备写入仍是
+  `{"Cmd":"ChangeConfig","Value":{...},"ExternalDevices":[...]}`，两条路径格式不同、不要互相"统一"。**
+- 复制专用信封：`{"Seq":<unix 秒>,"Data":{"BasicConfig":{...},"ExternalDevices":[...]}}`
+  （`Seq = DateTimeOffset.UtcNow.ToUnixTimeSeconds()`）。`BasicConfig` 比写入的 `Value`
+  多一个 `IsMqttLog`（上位机无此设置项，`BuildCopyPayloadJson` 中固定输出 `"1"`，字段顺序与
+  写入的 `ChangeConfigValue` 一致、仅在 `SSID` 后插入）。
+- **取值一致性的唯一保障是共用部件**：`CaptureWriteSnapshot()` / `BuildBaseConfigFromSnapshot()` /
+  `BuildExternalDevicesPayload()` 是写入与复制共用的取值来源，`BuildPendingWriteJson()`（写入）
+  与 `BuildCopyPayloadJson()`（复制）只负责各自的外层信封。改配置字段时只改这三处，
+  **不要给复制按钮单独拼一份取值**，否则必然漂移。
+- `CaptureWriteSnapshot` 内强制 `ReadUDPPort = "1"`（写入时 UDP 端口固定为 1，界面亦有提示）：
+  没有这一步，「读回 8080 → 复制显示 8080 → 实际写入 1」就会不一致。此设置对两条路径都生效。
+- 复制**不要求串口已打开**，也不向设备/服务端写任何数据；按钮始终可用（不绑定 `ButtonIsEnabled`）。
+  若当前配置不完整（`TryValidateConfig` 不过），仍允许复制（便于查看/留档），但弹窗会 Warning 提示
+  「直接写入会被校验拒绝」并列出缺失项。
+- 复制成功后只更新 `ReadStatusMessage`（含字符数与时间戳），**不写 `WroteSnapshot`**——
+  那是「最近一次真实写入」的记录，不能污染读取成功弹窗里的一致性结论。
 
 ## Write + Verify + Bind (写入 → 自动回读校验 → 绑定点位)
 

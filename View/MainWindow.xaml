@@ -360,6 +360,14 @@
                                     Style="{StaticResource SecondaryButton}"
                                     ToolTip="{Binding PointAssignStatus}"
                                     IsEnabled="{Binding ButtonIsEnabled}" />
+                                <Button
+                                    Margin="4,0,0,0"
+                                    Padding="14,4"
+                                    Command="{Binding CmdClick}"
+                                    CommandParameter="{Binding RelativeSource={RelativeSource Mode=Self}}"
+                                    Content="复制待写入数据"
+                                    Style="{StaticResource SecondaryButton}"
+                                    ToolTip="一键复制当前即将写入设备的配置：取值与点击「写入」时实际发送的完全一致，外覆 {Seq,Data:{BasicConfig,ExternalDevices}} 信封格式，无需打开串口" />
                             </StackPanel>
 
                             <Border

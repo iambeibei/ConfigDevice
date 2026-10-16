@@ -279,6 +279,12 @@ namespace LightGateway.ViewModel
                     ApplySerialUiState(serialModel.IsOpen);
                     break;
 
+                case "复制待写入数据":
+                    // 与「写入」共用同一载荷构建入口，复制内容与实际发送的 ChangeConfig 完全一致。
+                    // 不要求串口已打开，也不修改任何设备或服务端数据。
+                    CopyPendingWriteData();
+                    break;
+
                 case "同步老化架":
                     _ = SyncAgingShelvesFromApiAsync(silent: false);
                     break;
@@ -571,9 +577,153 @@ namespace LightGateway.ViewModel
             };
         }
 
-        private string GetSnapshotValue(string key)
+        /// <summary>
+        /// 生成当前写入快照。「写入」与「复制待写入数据」共用同一取值来源。
+        /// 注意：写入时 UDP 端口固定为 1，此处与写入流程保持一致地强制设置，
+        /// 避免出现「读回 8080 → 复制显示 8080 → 实际写入 1」的不一致。
+        /// </summary>
+        private List<KeyValuePair<string, string>> CaptureWriteSnapshot()
         {
-            return WroteSnapshot.First(kv => kv.Key == key).Value;
+            // 与界面提示「UDP 端口（写入时自动设为1）」及原写入流程保持一致。
+            ReadUDPPort = "1";
+            return MakeWroteSnapshot();
+        }
+
+        /// <summary>
+        /// 写入快照 → 设备侧基础配置对象（ChangeConfig 的 Value）。
+        /// 「写入」与「复制待写入数据」共用，保证两边取到的值完全一致。
+        /// </summary>
+        private ChangeConfigValue BuildBaseConfigFromSnapshot(List<KeyValuePair<string, string>> snapshot)
+        {
+            string Snap(string key) => snapshot.First(kv => kv.Key == key).Value;
+
+            return new ChangeConfigValue
+            {
+                IsRoot = Snap("IsRoot"),
+                SSID = Snap("SSID"),
+                WIFI_PS = Snap("WIFI_PS"),
+                SSID1 = Snap("SSID1"),
+                WIFI_PS1 = Snap("WIFI_PS1"),
+                Chanel = Snap("Chanel"),
+                Mesh_ID = Snap("Mesh_ID"),
+                Mesh_PS = Snap("Mesh_PS"),
+                DEVICE_ID = Snap("DEVICE_ID"),
+                UDP_Port = Snap("UDP_Port"),
+                SERVER_IP = Snap("SERVER_IP"),
+                SERVER_UDP_Port = Snap("SERVER_UDP_Port"),
+                AgingNumber = Snap("AgingNumber")
+            };
+        }
+
+        /// <summary>
+        /// 外接设备载荷投影。「写入」与「复制待写入数据」共用。
+        /// 返回 object（运行时为匿名类型 List），System.Text.Json 按运行时类型序列化，输出不变。
+        /// </summary>
+        private object BuildExternalDevicesPayload()
+        {
+            return ExternaldeviceList.Select(d => new
+            {
+                d.Name,
+                d.ProtoID,
+                d.Communication,
+                d.Proto,
+                d.AgingSteps
+            }).ToList();
+        }
+
+        /// <summary>
+        /// 构建「即将写入设备」的载荷（ChangeConfig JSON）——写入按钮实际发送的格式。
+        /// 同时输出写入快照（供确认弹窗展示与回读比对 CheckWriteOK 使用）。
+        /// </summary>
+        private string BuildPendingWriteJson(out List<KeyValuePair<string, string>> snapshot)
+        {
+            snapshot = CaptureWriteSnapshot();
+
+            var config = new
+            {
+                Cmd = "ChangeConfig",
+                Value = BuildBaseConfigFromSnapshot(snapshot),
+                ExternalDevices = BuildExternalDevicesPayload(),
+            };
+
+            return JsonSerializer.Serialize(config);
+        }
+
+        /// <summary>
+        /// 「复制待写入数据」专用载荷格式（仅复制到剪贴板，不发送给设备）：
+        /// {"Seq":&lt;unix 秒&gt;,"Data":{"BasicConfig":{...},"ExternalDevices":[...]}}
+        /// 基础配置与外接设备的取值与「写入」完全一致（共用 CaptureWriteSnapshot /
+        /// BuildBaseConfigFromSnapshot / BuildExternalDevicesPayload），仅外层信封不同。
+        /// 说明：BasicConfig 比写入格式多一个 IsMqttLog——上位机没有该设置项，
+        /// 按复制目标格式要求固定输出 "1"。
+        /// </summary>
+        private string BuildCopyPayloadJson()
+        {
+            var snapshot = CaptureWriteSnapshot();
+            var baseConfig = BuildBaseConfigFromSnapshot(snapshot);
+
+            var payload = new
+            {
+                Seq = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                Data = new
+                {
+                    BasicConfig = new
+                    {
+                        baseConfig.IsRoot,
+                        baseConfig.SSID,
+                        IsMqttLog = "1",
+                        baseConfig.WIFI_PS,
+                        baseConfig.SSID1,
+                        baseConfig.WIFI_PS1,
+                        baseConfig.Chanel,
+                        baseConfig.Mesh_ID,
+                        baseConfig.Mesh_PS,
+                        baseConfig.DEVICE_ID,
+                        baseConfig.UDP_Port,
+                        baseConfig.SERVER_IP,
+                        baseConfig.SERVER_UDP_Port,
+                        baseConfig.AgingNumber
+                    },
+                    ExternalDevices = BuildExternalDevicesPayload(),
+                }
+            };
+
+            return JsonSerializer.Serialize(payload);
+        }
+
+        /// <summary>
+        /// 「复制待写入数据」：把当前界面上即将写入设备的配置复制到剪贴板。
+        /// 取值与「写入」按钮实际发送的配置完全一致（共用 CaptureWriteSnapshot /
+        /// BuildBaseConfigFromSnapshot / BuildExternalDevicesPayload），但外覆复制专用信封
+        /// {"Seq":&lt;unix 秒&gt;,"Data":{"BasicConfig":{...},"ExternalDevices":[...]}}。
+        /// 不要求串口已打开，也不向设备或服务端写入任何数据。
+        /// </summary>
+        private void CopyPendingWriteData()
+        {
+            try
+            {
+                string json = BuildCopyPayloadJson();
+                Clipboard.SetText(json);
+
+                bool valid = TryValidateConfig(out var errors);
+                ReadStatusMessage = $"已复制待写入配置（{json.Length} 字符，{DateTime.Now:HH:mm:ss}）";
+
+                string summary = $"已复制待写入配置到剪贴板（共 {json.Length} 字符），配置取值与点击「写入」时实际发送的完全一致（外覆 Seq/Data 信封格式）。";
+                MessageBoxImage icon = MessageBoxImage.Information;
+                if (!valid)
+                {
+                    // 不阻断复制（用户可能只是想查看/留档），但需提醒直接写入会被校验拒绝。
+                    summary += "\n\n注意：当前配置不完整，若直接写入会被校验拒绝：\n" + string.Join("\n", errors);
+                    icon = MessageBoxImage.Warning;
+                }
+
+                MessageBox.Show(summary, "复制待写入数据", MessageBoxButton.OK, icon);
+            }
+            catch (Exception ex)
+            {
+                ReadStatusMessage = $"复制失败：{ex.Message}";
+                MessageBox.Show($"复制待写入配置失败：{ex.Message}", "复制待写入数据", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private List<KeyValuePair<string, string>> GetReadSnapshot()
@@ -1242,8 +1392,6 @@ namespace LightGateway.ViewModel
         /// </summary>
         private async Task<WriteOutcome> WriteVerifyAndBindAsync()
         {
-            ReadUDPPort = "1";
-
             if (!TryValidateConfig(out var validationErrors))
             {
                 ReadStatusMessage = "写入未开始：" + string.Join("；", validationErrors);
@@ -1254,41 +1402,10 @@ namespace LightGateway.ViewModel
             // 绑定参数必须在写入前快照：回读后的 UI 回显会改写 SelectedAgingShelf / SelectedAgingPoint。
             BindContext? bindContext = CaptureBindContext();
 
-            WroteSnapshot = MakeWroteSnapshot();
-            var baseConfig = new ChangeConfigValue
-            {
-                IsRoot = GetSnapshotValue("IsRoot"),
-                SSID = GetSnapshotValue("SSID"),
-                WIFI_PS = GetSnapshotValue("WIFI_PS"),
-                SSID1 = GetSnapshotValue("SSID1"),
-                WIFI_PS1 = GetSnapshotValue("WIFI_PS1"),
-                Chanel = GetSnapshotValue("Chanel"),
-                Mesh_ID = GetSnapshotValue("Mesh_ID"),
-                Mesh_PS = GetSnapshotValue("Mesh_PS"),
-                DEVICE_ID = GetSnapshotValue("DEVICE_ID"),
-                UDP_Port = GetSnapshotValue("UDP_Port"),
-                SERVER_IP = GetSnapshotValue("SERVER_IP"),
-                SERVER_UDP_Port = GetSnapshotValue("SERVER_UDP_Port"),
-                AgingNumber = GetSnapshotValue("AgingNumber")
-            };
-
-            var externalDevices = ExternaldeviceList.Select(d => new
-            {
-                d.Name,
-                d.ProtoID,
-                d.Communication,
-                d.Proto,
-                d.AgingSteps
-            }).ToList();
-
-            var config = new
-            {
-                Cmd = "ChangeConfig",
-                Value = baseConfig,
-                ExternalDevices = externalDevices,
-            };
-
-            string json = JsonSerializer.Serialize(config);
+            // 载荷构建与「复制待写入数据」按钮共用 BuildPendingWriteJson 同一入口，
+            // 保证复制到的内容与这里真正发送给设备的字节完全一致。
+            string json = BuildPendingWriteJson(out var snapshot);
+            WroteSnapshot = snapshot;
             byte[] message = Encoding.UTF8.GetBytes(json);
 
             // 一次确认同时覆盖「写设备」与「写服务端绑定」两个副作用。
