@@ -451,6 +451,17 @@ namespace LightGateway.ViewModel
         private const int ReadRetryDelayMs = 300;
 
         /// <summary>
+        /// 「写入」后回读比对的总尝试次数（含首次）。回读只影响校验，不影响已下发的配置，
+        /// 因此失败后可以更激进地重试，避免脏帧（JSON 后残留字节）导致误报写入失败。
+        /// </summary>
+        private const int WriteReadBackMaxAttempts = 5;
+
+        /// <summary>
+        /// 两次回读尝试之间的等待时间（毫秒）：比「读取」按钮更短，回读场景下设备已在响应状态。
+        /// </summary>
+        private const int WriteReadBackRetryDelayMs = 50;
+
+        /// <summary>
         /// 「读取」流程进行中。用于阻止等待期间的重复点击，并与「写入」互斥
         /// （读取跑在后台线程上，与写入共用同一个串口对象）。
         /// </summary>
@@ -521,17 +532,27 @@ namespace LightGateway.ViewModel
         }
 
         /// <summary>
-        /// 带自动重试的读取配置，供「读取」按钮使用。
+        /// 带自动重试的读取配置，供「读取」按钮与「写入后回读」使用。
         /// 任一尝试成功即返回；全部尝试失败才返回最后一次异常。
         /// 重试过程只更新状态栏文案，不弹任何窗；是否弹窗由调用方决定。
         /// 读取本身是同步阻塞的（最长等待 FirstByteReadTimeOut），放到后台线程执行以免界面卡死。
+        /// 每次尝试前都会清空串口接收缓冲区，因此重试天然丢弃上一次的脏帧。
         /// </summary>
+        /// <param name="maxAttempts">总尝试次数（含首次），默认走「读取」按钮的 <see cref="ReadMaxAttempts"/>。</param>
+        /// <param name="retryDelayMs">两次尝试之间的间隔毫秒，默认走 <see cref="ReadRetryDelayMs"/>。</param>
+        /// <param name="retryStatusPrefix">状态栏重试文案前缀，默认面向「读取」按钮。</param>
         /// <returns>ok=是否成功；attempts=实际尝试次数；error=全部失败时的最后一次异常。</returns>
-        private async Task<(bool ok, int attempts, Exception? error)> TryReadConfigWithRetryAsync()
+        private async Task<(bool ok, int attempts, Exception? error)> TryReadConfigWithRetryAsync(
+            int? maxAttempts = null,
+            int? retryDelayMs = null,
+            string? retryStatusPrefix = null)
         {
+            int attemptLimit = maxAttempts ?? ReadMaxAttempts;
+            int delayMs = retryDelayMs ?? ReadRetryDelayMs;
+            string prefix = retryStatusPrefix ?? "读取失败，正在自动重试";
             Exception? lastError = null;
 
-            for (int attempt = 1; attempt <= ReadMaxAttempts; attempt++)
+            for (int attempt = 1; attempt <= attemptLimit; attempt++)
             {
                 try
                 {
@@ -542,18 +563,18 @@ namespace LightGateway.ViewModel
                 {
                     lastError = ex;
 
-                    if (attempt >= ReadMaxAttempts)
+                    if (attempt >= attemptLimit)
                     {
                         break;
                     }
 
                     // 状态栏实时反馈重试进度（await 已回到界面线程，绑定能正常刷新）。
-                    ReadStatusMessage = $"读取失败，正在自动重试（{attempt}/{ReadMaxAttempts - 1}）：{ex.Message}";
-                    await Task.Delay(ReadRetryDelayMs);
+                    ReadStatusMessage = $"{prefix}（{attempt}/{attemptLimit - 1}）：{ex.Message}";
+                    await Task.Delay(delayMs);
                 }
             }
 
-            return (false, ReadMaxAttempts, lastError);
+            return (false, attemptLimit, lastError);
         }
 
         private List<KeyValuePair<string, string>> MakeWroteSnapshot()
@@ -1437,18 +1458,21 @@ namespace LightGateway.ViewModel
             await RunReadBackDelayAsync();
 
             WaitMessage = "正在回读设备配置...";
-            try
+            // 回读同样带自动重试：脏帧（JSON 后残留字节）或偶发超时时多试几次，
+            // 避免把一次回读抖动误报成「写入失败」。
+            var (readBackOk, readBackAttempts, readBackError) = await TryReadConfigWithRetryAsync(
+                WriteReadBackMaxAttempts,
+                WriteReadBackRetryDelayMs,
+                "回读失败，正在自动重试");
+            if (!readBackOk)
             {
-                await Task.Run(DoReadConfig);
-            }
-            catch (Exception ex)
-            {
-                ReadStatusMessage = $"写入失败：设备未返回配置（{ex.Message}）";
+                Exception ex = readBackError ?? new TimeoutException("ESP32 未在规定时间内返回配置");
+                ReadStatusMessage = $"写入失败：设备未返回配置（已自动重试 {readBackAttempts - 1} 次，{ex.Message}）";
                 PointAssignStatus = "写入结果未知，未绑定点位";
                 return WriteOutcome.Error(
                     "写入失败",
                     "设备未在规定时间内返回配置，写入结果未知。",
-                    ex.Message + "\n请检查串口连接与设备供电后重试。");
+                    ex.Message + $"\n已自动重试 {readBackAttempts - 1} 次，请检查串口连接与设备供电后重试。");
             }
 
             ApplyReadBackShelfSelection();
