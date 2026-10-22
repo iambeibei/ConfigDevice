@@ -1413,14 +1413,21 @@ namespace LightGateway.ViewModel
         /// </summary>
         private async Task<WriteOutcome> WriteVerifyAndBindAsync()
         {
-            // 节点 ID 每次写入前自动 +1：连续烧录多个节点时免去逐台手动改号。
-            // 必须在快照、确认弹窗、发送之前完成，保证写进设备、回读比对、绑定的都是自增后的值。
+            // 勾选「允许修改节点 ID」时，每次写入前自动 +1：连续烧录多个节点时免去逐台手动改号。
+            // 未勾选时保持读取/填写值不变，读到什么就写什么。
+            // 自增必须在快照、确认弹窗、发送之前完成，保证写进设备、回读比对、绑定的都是同一值。
+            bool nodeIdIncremented = false;
             string nodeIdBeforeWrite = (ReadUDP_ID ?? "").Trim();
-            if (!TryIncrementNodeId(out string nodeIdError))
+            if (CanEditNodeId)
             {
-                ReadStatusMessage = "写入未开始：" + nodeIdError;
-                PointAssignStatus = "节点 ID 无法自动加 1，未写入";
-                return WriteOutcome.Error("写入失败", "节点 ID 无法自动加 1，未向设备写入任何数据。", nodeIdError);
+                if (!TryIncrementNodeId(out string nodeIdError))
+                {
+                    ReadStatusMessage = "写入未开始：" + nodeIdError;
+                    PointAssignStatus = "节点 ID 无法自动加 1，未写入";
+                    return WriteOutcome.Error("写入失败", "节点 ID 无法自动加 1，未向设备写入任何数据。", nodeIdError);
+                }
+
+                nodeIdIncremented = true;
             }
 
             if (!TryValidateConfig(out var validationErrors))
@@ -1442,7 +1449,10 @@ namespace LightGateway.ViewModel
             // 一次确认同时覆盖「写设备」与「写服务端绑定」两个副作用。
             string mes = string.Join("\n", WroteSnapshot.Select(kv => $"{kv.Key}: {kv.Value}"));
             mes += "\n\n" + DescribeBindPlan(bindContext);
-            mes += $"\n\n节点 ID 已自动 +1：{nodeIdBeforeWrite} → {ReadUDP_ID}";
+            if (nodeIdIncremented)
+            {
+                mes += $"\n\n节点 ID 已自动 +1：{nodeIdBeforeWrite} → {ReadUDP_ID}";
+            }
             if (MessageBox.Show(mes + "\n\n确定要写入吗？", "提示", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
             {
                 // 用户主动取消，不算失败，静默结束即可。
