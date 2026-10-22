@@ -462,11 +462,16 @@
                                     <StackPanel>
                                         <TextBlock Style="{StaticResource ReadSectionTitleStyle}" Text="节点与服务器" />
                                         <TextBlock Style="{StaticResource ReadLabelStyle}" Text="节点 ID" />
+                                        <CheckBox
+                                            Margin="0,0,0,3"
+                                            Content="允许修改节点 ID"
+                                            IsChecked="{Binding CanEditNodeId}" />
                                         <TextBox
                                             Background="#F1F5F9"
-                                            IsReadOnly="True"
+                                            IsReadOnly="{Binding IsNodeIdReadOnly}"
                                             Style="{StaticResource EditableReadValue}"
-                                            Text="{Binding ReadUDP_ID}" />
+                                            Text="{Binding ReadUDP_ID}"
+                                            ToolTip="勾选“允许修改节点 ID”后可手动输入；每次写入会自动加 1" />
                                         <TextBlock
                                             Margin="0,10,0,3"
                                             Style="{StaticResource ReadLabelStyle}"

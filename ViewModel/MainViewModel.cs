@@ -1413,6 +1413,16 @@ namespace LightGateway.ViewModel
         /// </summary>
         private async Task<WriteOutcome> WriteVerifyAndBindAsync()
         {
+            // 节点 ID 每次写入前自动 +1：连续烧录多个节点时免去逐台手动改号。
+            // 必须在快照、确认弹窗、发送之前完成，保证写进设备、回读比对、绑定的都是自增后的值。
+            string nodeIdBeforeWrite = (ReadUDP_ID ?? "").Trim();
+            if (!TryIncrementNodeId(out string nodeIdError))
+            {
+                ReadStatusMessage = "写入未开始：" + nodeIdError;
+                PointAssignStatus = "节点 ID 无法自动加 1，未写入";
+                return WriteOutcome.Error("写入失败", "节点 ID 无法自动加 1，未向设备写入任何数据。", nodeIdError);
+            }
+
             if (!TryValidateConfig(out var validationErrors))
             {
                 ReadStatusMessage = "写入未开始：" + string.Join("；", validationErrors);
@@ -1432,6 +1442,7 @@ namespace LightGateway.ViewModel
             // 一次确认同时覆盖「写设备」与「写服务端绑定」两个副作用。
             string mes = string.Join("\n", WroteSnapshot.Select(kv => $"{kv.Key}: {kv.Value}"));
             mes += "\n\n" + DescribeBindPlan(bindContext);
+            mes += $"\n\n节点 ID 已自动 +1：{nodeIdBeforeWrite} → {ReadUDP_ID}";
             if (MessageBox.Show(mes + "\n\n确定要写入吗？", "提示", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
             {
                 // 用户主动取消，不算失败，静默结束即可。
@@ -1517,6 +1528,37 @@ namespace LightGateway.ViewModel
                 "写入成功",
                 $"配置写入成功，已绑定 {bindContext.RackName} → {bindContext.PointName}。",
                 $"节点 ID：{bindContext.DeviceId}（{roleText}）\n老化架：{bindContext.RackName}\n点位：{bindContext.PointName}\n可用点位列表已刷新。");
+        }
+
+        /// <summary>
+        /// 把当前节点 ID 自动加 1（数字合法才自增）。供「写入」流程调用。
+        /// </summary>
+        /// <returns>true=已自增；false=节点 ID 缺失或不是非负整数，未做任何修改。</returns>
+        private bool TryIncrementNodeId(out string error)
+        {
+            error = "";
+            string current = (ReadUDP_ID ?? "").Trim();
+
+            if (current.Length == 0)
+            {
+                error = "节点 ID 未填写，无法自动加 1。";
+                return false;
+            }
+
+            if (!long.TryParse(current, out long value) || value < 0)
+            {
+                error = $"节点 ID“{current}”不是有效数字，无法自动加 1。";
+                return false;
+            }
+
+            if (value >= long.MaxValue)
+            {
+                error = $"节点 ID“{current}”已达上限，无法继续加 1。";
+                return false;
+            }
+
+            ReadUDP_ID = (value + 1).ToString();
+            return true;
         }
 
         /// <summary>
@@ -1827,6 +1869,25 @@ namespace LightGateway.ViewModel
         public string ReadMesh_ID { get; set; } = "";
         public string ReadMesh_PS { get; set; } = "";
         public string ReadUDP_ID { get; set; } = "";
+
+        /// <summary>
+        /// 是否允许手动修改节点 ID。默认 false：节点 ID 由设备读取回填，输入框只读。
+        /// </summary>
+        public bool CanEditNodeId { get; set; }
+
+        /// <summary>
+        /// 节点 ID 输入框的只读状态：未勾选「允许修改节点 ID」时为 true（不可编辑）。
+        /// 勾选框变化时由 OnCanEditNodeIdChanged 同步。
+        /// </summary>
+        public bool IsNodeIdReadOnly { get; set; } = true;
+
+        /// <summary>
+        /// 勾选框变化时同步刷新输入框的只读状态。
+        /// </summary>
+        private void OnCanEditNodeIdChanged()
+        {
+            IsNodeIdReadOnly = !CanEditNodeId;
+        }
         public string ReadUDPPort { get; set; } = "1";
         public string ReadSERVER_IP { get; set; } = "";
         public string ReadSERVER_UDP_Port { get; set; } = "";
